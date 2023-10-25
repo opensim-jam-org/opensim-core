@@ -119,7 +119,11 @@ void ComakTarget::initialize(){
     if (_parameter_names.size() == 0) {
         _parameter_names.setSize(_nParameters);
     }
-
+    
+    if (_emg_gamma_weight.size() == 0) {
+        _emg_gamma_weight.resize(_nMuscles);
+        _emg_gamma_weight = 0.0;
+    }
     //Precompute Constraint Matrix
     precomputeConstraintMatrix();
 
@@ -441,8 +445,16 @@ objectiveFunc(const SimTK::Vector &parameters, const bool new_parameters,
     //Muscle Activations
     double msl_cost = 0.0;
     for (int i = 0; i < _nMuscles; i++) {
-        msl_cost += _muscle_volumes(i) * _muscle_weight(i) *
-            pow(fabs(parameters(p) - _desired_act(p)), _activation_exponent);
+        //msl_cost += _muscle_volumes(i) *
+        //            pow(fabs(parameters(p)), _activation_exponent);
+        msl_cost += _muscle_weight(i) * _muscle_weight(i) *
+                    pow(fabs(parameters(i)), _activation_exponent);
+        // follow EMGs
+        if (_is_emg_assisted) {
+            msl_cost += _muscle_weight(i) * 
+                        _emg_gamma_weight(i) *
+                        pow(parameters(i) - _desired_act(i), 2);
+        }
         p++;
     }
     
@@ -466,12 +478,12 @@ objectiveFunc(const SimTK::Vector &parameters, const bool new_parameters,
         + non_muscle_cost * _non_muscle_actuator_weight
         + contact_cost * _contact_energy_weight;
 
-    /*
+    if (_verbose > 9) {
         std::cout << "Total Cost: " << performance << "\t";
         std::cout << "Muscle Cost: " << msl_cost << "\t";
         std::cout << "Non Muscle Actuator Cost: " << non_muscle_cost << "\t";
         std::cout << "Contact Cost: " << contact_cost << std::endl;
-    */
+    }
 
     return 0;
 }
@@ -485,7 +497,7 @@ gradientFunc(const SimTK::Vector &parameters, const bool new_parameters,
 {
     gradient = 0;
     int p = 0;
-    for (int i = 0; i < _nMuscles; i++) {
+    /*for (int i = 0; i < _nMuscles; i++) {
         gradient[p] += _activation_exponent * 
             _muscle_volumes(i) * _muscle_weight(i) *
             (parameters[p] - _desired_act(p)) * 
@@ -494,58 +506,37 @@ gradientFunc(const SimTK::Vector &parameters, const bool new_parameters,
 
         p++;
     }
+    */
     
+    for (int i = 0; i < _nMuscles; i++) {
+        gradient(i) += _activation_exponent * _muscle_weight(i) * _muscle_volumes(i) *
+                        pow(fabs(parameters(i)), _activation_exponent - 1.0);
+        // follow EMGs
+        if (_is_emg_assisted) {
+            gradient(i) += 2.0 * _muscle_weight(i) * _emg_gamma_weight(i) *
+                            (parameters(i) - _desired_act(i));
+        }
+        p++;
+    }
+
     for (int i = 0; i < _nNonMuscleActuators; i++) {
-        gradient[p] += 
+        gradient(p) += 
             _activation_exponent * _non_muscle_actuator_weight * 
-            parameters[p] * pow(fabs(parameters[p]),
+            parameters(p) * pow(fabs(parameters(p)),
                 _activation_exponent - 2.0);
 
         p++;
     }
 
-    /*
-    int p = 0;
-    for (int i = 0; i < _nMuscles; i++) {
-        if (parameters[p]-_desired_act(i) < 0) {
-            gradient[p] += -1.0 * _activation_exponent * _muscle_volumes(i) * 
-                _muscle_weight(i) * pow(fabs(parameters[p] - _desired_act(p)), 
-                    _activation_exponent - 1.0);
-        }
-        else {
-            gradient[p] += _activation_exponent * _muscle_volumes(i) * 
-                _muscle_weight(i) * pow(fabs(parameters[p] - _desired_act(p)),
-                    _activation_exponent - 1.0);
-        }
-        p++;
-    }
-    
-    for (int i = 0; i < _nNonMuscleActuators; i++) {
-        if (parameters[p] < 0) {
-            gradient[p] += 
-                -1.0 * _activation_exponent * _non_muscle_actuator_weight * 
-                pow(fabs(parameters[p]), 
-                    _activation_exponent - 1.0);
-        }
-        else {
-            gradient[p] += 
-                _activation_exponent * _non_muscle_actuator_weight * 
-                pow(fabs(parameters[p]),
-                    _activation_exponent - 1.0);
-        }
-        
-        p++;
-    }
-    */
     for (int i = 0; i < _nSecondaryCoord; ++i) {
-        gradient[p] += 
+        gradient(p) += 
             _contact_energy_weight * _secondary_coord_unit_energy[i];
         p++;
     }
 
     log_trace("Cost Gradient");
     for (int i = 0; i < _nParameters; ++i) {
-        log_trace("{} : {}",_parameter_names[i], gradient[i]);
+        log_trace("{} : {}",_parameter_names[i], gradient(i));
     }
 
     return 0;

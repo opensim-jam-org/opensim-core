@@ -61,6 +61,9 @@ public:
     OpenSim_DECLARE_PROPERTY(actuator, std::string, 
         "Path to actuator in model.")
 
+    OpenSim_DECLARE_PROPERTY(emg_gamma_weight,
+                      double, "weighting coefficient to following EMGs")
+
     OpenSim_DECLARE_PROPERTY(weight, Function, 
         "Time varying weighting coefficient that multiplies the entire "
         "actuator activation term in the COMAK optimization cost function."

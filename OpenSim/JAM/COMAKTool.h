@@ -283,7 +283,7 @@ public:
         "The default value is 1e-10.")
 
     OpenSim_DECLARE_PROPERTY(use_muscle_physiology, bool,
-        "PLACEHOLDER PROPERTY. ONLY false IS IMPLEMENTED."
+        "PLACEHOLDER PROPERTY."
         "Set whether activation dynamics, muscle force-length-velocity "
         "and pennation properties should be used. "
         "If false, use_activation_dynamics and use_tendon_compliance "
@@ -301,7 +301,12 @@ public:
 
     OpenSim_DECLARE_UNNAMED_PROPERTY(AnalysisSet,"Analyses to be performed"
         "throughout the COMAK simulation.")
-
+    // Amir
+    OpenSim_DECLARE_PROPERTY(emg_file, std::string, 
+        "Path to enveloped EMG file.")
+   OpenSim_DECLARE_PROPERTY(is_emg_assisted,
+                                     bool,
+                                     "If true, the analysis will be EMG-assisted.")
 //=============================================================================
 // METHODS
 //=============================================================================
@@ -331,6 +336,7 @@ private:
     void initializeResultsStorage();
     void recordResultsStorage(const SimTK::State& state, int frame);
     void printResultsFiles();
+    void updatemusclemaxforce(SimTK::State& s); //Amir
 
 public:
     bool run();
@@ -405,6 +411,7 @@ private:
     FunctionSet _cost_muscle_desired_act;
     FunctionSet _cost_muscle_act_lower_bound;
     FunctionSet _cost_muscle_act_upper_bound;
+    SimTK::Vector _emg_gamma_weight; //Amir
 
     std::string _directoryOfSetupFile;
 

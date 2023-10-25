@@ -29,6 +29,7 @@
 #include <OpenSim/Common/GCVSpline.h>
 #include "OpenSim/Simulation/SimbodyEngine/CoordinateCouplerConstraint.h"
 #include <OpenSim/Common/Stopwatch.h>
+#include <OpenSim/Common/TimeSeriesTable.h>
 
 using namespace OpenSim;
 using namespace SimTK;
@@ -107,6 +108,10 @@ void COMAKTool::constructProperties()
     constructProperty_use_visualizer(false);
 
     constructProperty_AnalysisSet(AnalysisSet());
+    // Amir
+    constructProperty_verbose(0);
+    constructProperty_emg_file("");
+    constructProperty_is_emg_assisted(false);
 }
 
 void COMAKTool::setModel(Model& model) {
@@ -126,11 +131,12 @@ bool COMAKTool::run()
     auto cwd = IO::CwdChanger::changeToParentOf(getDocumentFileName());
 
     try {
-        if (get_use_muscle_physiology()) { 
-            OPENSIM_THROW(Exception, 
-                "ERROR: COMAKTool use_muscle_physiology = true "
-                "is not implemented")
-        };
+        //Amir
+        // if (get_use_muscle_physiology()) { 
+        //     OPENSIM_THROW(Exception, 
+        //         "ERROR: COMAKTool use_muscle_physiology = true "
+        //         "is not implemented")
+        // };
 
         const Stopwatch stopwatch;
         log_critical("");
@@ -597,6 +603,8 @@ SimTK::State COMAKTool::initialize()
     }
 
     //Organize COMAKCostFunctionParameters
+    int msl_cnt = 0;
+    SimTK::Vector _gamma(_n_muscles);
     for (Muscle &msl : _model.updComponentList<Muscle>()) {
         bool found_msl = false;
         
@@ -620,6 +628,8 @@ SimTK::State COMAKTool::initialize()
 
                 _cost_muscle_act_upper_bound.cloneAndAppend(
                     parameter.get_activation_upper_bound());
+                
+                _gamma[msl_cnt] = parameter.get_emg_gamma_weight(); //Amir
             }
         }
         if(found_msl == false){
@@ -627,9 +637,11 @@ SimTK::State COMAKTool::initialize()
             _cost_muscle_desired_act.cloneAndAppend(Constant(0.0));
             _cost_muscle_act_lower_bound.cloneAndAppend(Constant(0.01));
             _cost_muscle_act_upper_bound.cloneAndAppend(Constant(1.0));
-            
+            _gamma[msl_cnt] = 0.0; //Amir
         }
+        msl_cnt++; //Amir
     }
+    _emg_gamma_weight = _gamma; //Amir
 
     //Check Settle Simulation Parameters
     if (get_settle_constant_muscle_control() < 0 ||
@@ -665,15 +677,19 @@ void COMAKTool::performCOMAK()
     extractKinematicsFromFile();
 
     //Check Cost Function Parameters
-    log_debug("{:<20} {:<20} {:<20} {:<20} {:<20}",
-        "Muscles","muscle_weight","desired_act","lower_bound","upper_bound");
+    log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", "Muscles",
+            "muscle_weight", "muscle_emg_gamma", "desired_act", "lower_bound",
+            "upper_bound");
+    
     int m = 0;
     for (Muscle &msl : _model.updComponentList<Muscle>()) {
 
-        log_debug("{:<20} {:<20} {:<20} {:<20} {:<20}", msl.getName(),
+        log_debug("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", msl.getName(),
             _cost_muscle_weights.get(m).calcValue(
                 SimTK::Vector(1, _time[0])),
             
+            _emg_gamma_weight[m], //Amir
+
             _cost_muscle_desired_act.get(m).calcValue(
                 SimTK::Vector(1, _time[0])),
 
@@ -868,7 +884,21 @@ void COMAKTool::performCOMAK()
                         SimTK::Vector(1, _time[i])));
                 m++;
             }
-
+            //Amir ->
+            if (get_use_muscle_physiology()) {
+                SimTK::State& sWorkingCopy = _model.updWorkingState();
+                sWorkingCopy.setTime(state.getTime());
+                _model.initStateWithoutRecreatingSystem(sWorkingCopy);
+                // update Q's and U's
+                // log_info("state.getQ() {} \t", state.getQ());
+                // std::cout << "state.getQ()" << state.getQ() << std::endl;
+                sWorkingCopy.setQ(state.getQ());
+                sWorkingCopy.setU(state.getU());
+                _model.getMultibodySystem().realize(
+                        sWorkingCopy, SimTK::Stage::Velocity);
+                updatemusclemaxforce(_model.updWorkingState());
+            }
+            //->Amir
             ComakTarget target = ComakTarget(state, &_model, 
                 ~_udot_matrix[i],
                 _optim_parameters,
@@ -886,7 +916,11 @@ void COMAKTool::performCOMAK()
                 get_optimization_scale_delta_coord());
             target.setActivationExponent(get_activation_exponent());
             target.setParameterNames(_optim_parameter_names);            
-
+            //Amir ->
+            target.setVerbose(get_verbose());
+            target._is_emg_assisted = get_is_emg_assisted();
+            target.setEmgGammaWeight(_emg_gamma_weight);
+            // -> Amir
             //Set Muscle Weight Factors
             SimTK::Vector msl_weight(_n_muscles);
             for (int m = 0; m < _n_muscles; ++m) {
@@ -1414,6 +1448,7 @@ SimTK::Vector COMAKTool::equilibriateSecondaryCoordinates()
         msl.overrideActuation(state, true);
         double value = 
             msl.getMaxIsometricForce() * get_settle_constant_muscle_control();
+        //double value = msl.getMaxIsometricForce()*0.02; //Amir
         msl.setOverrideActuation(state, value);
     }
 
@@ -1907,5 +1942,20 @@ void COMAKTool::printOptimizationResultsToConsole(
     }
 }
 
-
+void COMAKTool::updatemusclemaxforce(SimTK::State& s) {
+    int i = 0;
+    for (const Muscle& msl : _model.updComponentList<Muscle>()) {
+        if (msl.appliesForce(s)) {
+            if (get_use_muscle_physiology())
+                _optimal_force[i] =
+                        msl.calcInextensibleTendonActiveFiberForce(s, 1.0);
+            else
+                _optimal_force[i] = msl.getMaxIsometricForce();
+            /* std::cout << msl.getAbsolutePathString() << "\t"
+                      << _optimal_force[i] << std::endl;
+                      */
+            i++;
+        }
+    }
+}
 

@@ -108,6 +108,7 @@ void COMAKInverseKinematicsTool::constructProperties()
     constructProperty_constrained_model_file("");
     constructProperty_geometry_folder("");
     constructProperty_use_visualizer(false);
+	constructProperty_verbose(0);
 }
 
 void COMAKInverseKinematicsTool::setModel(Model& model) {
@@ -310,7 +311,7 @@ void COMAKInverseKinematicsTool::performIKSecondaryConstraintSimulation() {
 
     //Initialize Model
     Model model = *_model.clone();
-    
+    model.setUseVisualizer(get_use_visualizer());
     model.initSystem();
 
     for (Muscle& msl : model.updComponentList<Muscle>()) {

@@ -154,10 +154,20 @@ public:
     void setParameterNames(const Array<std::string>& parameter_names) {
         _parameter_names = parameter_names;
     }
-
+    //Amir
+    void setVerbose(int verbose) {
+        _verbose = verbose;
+    }
+    
+    void setEmgGammaWeight(SimTK::Vector weight) {
+        _emg_gamma_weight = weight;
+    }
     //=========================================================================
     // DATA
     //=========================================================================
+public:
+	bool _is_emg_assisted;
+
 private:
     Model *_model;
     SimTK::State _state;
@@ -194,6 +204,9 @@ private:
 
     Array<std::string> _primary_coords;
     Array<std::string> _secondary_coords;
+    
+    int _verbose; //Amir
+    SimTK::Vector _emg_gamma_weight; //Amir
 
     SimTK::Vector _max_change;
     double _unit_udot_epsilon;
