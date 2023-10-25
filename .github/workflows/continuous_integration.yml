@@ -1,6 +1,7 @@
 name: continuous-integration
 
 # syntax https://help.github.com/en/articles/workflow-syntax-for-github-actions
+on: workflow_dispatch
 on:
   # Run at 2am every night.
   schedule:
