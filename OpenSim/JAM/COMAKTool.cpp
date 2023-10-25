@@ -1747,7 +1747,7 @@ void COMAKTool::printCOMAKascii() {
         "##    WWWWWWWWWWWW               WWWWWWW    WWWWWWWW                WWWWWWWWWWWWWWWWW          ##\n"
         "##    WWWW                      WWWWWWWWW   WWWWWWWW               WWWWWW                      ##\n"
         "##    WWWWWWWWWWWW              WWWWW  WWWWWWW  WWWWW             WWWWWW      WWWWWWWWW        ##\n"
-        "##    WWWWWWWWWWWW              WWWWW  WWWWWWW  WWWWW             WWWWWW        WWWWW          ##\n"
+        "##    WWWWWWWWWWWW              WWWWW  WWWWWWW  WWWWW             WWWWWW      WWWWWWWWW        ##\n"
         "##    WWWW                     WWWWWW   WWWWW   WWWWW             WWWWWW         WWW           ##\n"
         "##    WWWWWWWWWWWW             WWWWWW  WWWWWW   WWWWWW            WWWWWWWWWWWWWWWWWW           ##\n"
         "##    WWWWWWWWWWWW            WWWWWWW WWWWWWWW  WWWWWWW              WWWWWWWWWWWW              ##\n"
