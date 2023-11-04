@@ -77,14 +77,6 @@ ik_task_set = IKTaskSet();
 
 ik_task=IKMarkerTask();
 
-ik_task.setName('R_HJC');
-ik_task.setWeight(0);
-ik_task_set.cloneAndAppend(ik_task);
-
-ik_task.setName('L_HJC');
-ik_task.setWeight(0);
-ik_task_set.cloneAndAppend(ik_task);
-
 ik_task.setName('S2');
 ik_task.setWeight(10);
 ik_task_set.cloneAndAppend(ik_task);
@@ -110,14 +102,6 @@ ik_task.setWeight(1);
 ik_task_set.cloneAndAppend(ik_task);
 
 ik_task.setName('L.Clavicle');
-ik_task.setWeight(1);
-ik_task_set.cloneAndAppend(ik_task);
-
-ik_task.setName('R.Scapula');
-ik_task.setWeight(1);
-ik_task_set.cloneAndAppend(ik_task);
-
-ik_task.setName('L.Scapula');
 ik_task.setWeight(1);
 ik_task_set.cloneAndAppend(ik_task);
 
@@ -174,10 +158,6 @@ ik_task.setWeight(5);
 ik_task_set.cloneAndAppend(ik_task);
 
 ik_task.setName('R.TH3');
-ik_task.setWeight(5);
-ik_task_set.cloneAndAppend(ik_task);
-
-ik_task.setName('R.TH4');
 ik_task.setWeight(5);
 ik_task_set.cloneAndAppend(ik_task);
 
@@ -242,10 +222,6 @@ ik_task.setWeight(5);
 ik_task_set.cloneAndAppend(ik_task);
 
 ik_task.setName('L.SH3');
-ik_task.setWeight(5);
-ik_task_set.cloneAndAppend(ik_task);
-
-ik_task.setName('L.SH4');
 ik_task.setWeight(5);
 ik_task_set.cloneAndAppend(ik_task);
 
