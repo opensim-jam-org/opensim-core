@@ -185,6 +185,9 @@ public:
         "secondary_constraint_sim and inverse kinematics."
         "The default value is false.")
 
+    OpenSim_DECLARE_PROPERTY(verbose, int,
+                            "Controling output detail.")
+
 
 //=============================================================================
 // METHODS

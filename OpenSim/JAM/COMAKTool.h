@@ -307,6 +307,8 @@ public:
    OpenSim_DECLARE_PROPERTY(is_emg_assisted,
                                      bool,
                                      "If true, the analysis will be EMG-assisted.")
+    OpenSim_DECLARE_PROPERTY(verbose, int,
+                            "Controling output detail.")
 //=============================================================================
 // METHODS
 //=============================================================================
