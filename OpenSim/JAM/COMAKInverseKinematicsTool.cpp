@@ -429,8 +429,8 @@ void COMAKInverseKinematicsTool::performIKSecondaryConstraintSimulation() {
         timestepper.stepTo(i*dt);
         state = timestepper.getState();
         settle_states.append(state);
-            log_info("Time: {}", state.getTime());
-        if (get_verbose() >= 0) {
+        log_info("Time: {}", state.getTime());
+        if (get_verbose() > 0) {
             log_info("{:<30} {:<20} {:<20}", "Name", "Value", "Value Change");
         }
 
@@ -447,7 +447,7 @@ void COMAKInverseKinematicsTool::performIKSecondaryConstraintSimulation() {
             }
             prev_sec_coord_value(k) = value;
 
-            if (get_verbose() >= 0) {
+            if (get_verbose() > 0) {
                 log_info("{:<30} {:<20} {:<20}", coord.getName(), value, delta);
             }
 
