@@ -188,7 +188,8 @@ public:
         "The default value is false.")
 
     OpenSim_DECLARE_PROPERTY(verbose, int,
-                            "Controling output detail.")
+                            "Controlling output detail. Set 10 for all details, "
+                            "Set 5 for brief details, set 0 for min details")
     
     OpenSim_DECLARE_UNNAMED_PROPERTY(COMAKSecondaryCoordinateSet,
         "List of COMAKSecondaryCoodinate objects.")
@@ -250,8 +251,13 @@ public:
     Array<int> _primary_coord_index;
 
     Array<std::string> _secondary_coord_name;
+    Array<std::string> _secondary_coord_coupled_name;
     Array<std::string> _secondary_coord_path;
+    Array<std::string> _secondary_coord_coupled_path;
     Array<int> _secondary_coord_index;
+
+    Array<double> _coupled_coordinate_start_value;
+    Array<double> _coupled_coordinate_stop_value;
 
     int _n_frames;
     int _n_out_frames;
