@@ -21,6 +21,8 @@
 
 #include "osimJAMDLL.h"
 
+#include "COMAKSettingsSet.h"
+
 namespace OpenSim { 
 
 //=============================================================================
@@ -187,6 +189,9 @@ public:
 
     OpenSim_DECLARE_PROPERTY(verbose, int,
                             "Controling output detail.")
+    
+    OpenSim_DECLARE_UNNAMED_PROPERTY(COMAKSecondaryCoordinateSet,
+        "List of COMAKSecondaryCoodinate objects.")
 
 
 //=============================================================================

@@ -109,6 +109,9 @@ void COMAKInverseKinematicsTool::constructProperties()
     constructProperty_geometry_folder("");
     constructProperty_use_visualizer(false);
 	constructProperty_verbose(0);
+
+    constructProperty_COMAKSecondaryCoordinateSet(
+            COMAKSecondaryCoordinateSet());
 }
 
 void COMAKInverseKinematicsTool::setModel(Model& model) {

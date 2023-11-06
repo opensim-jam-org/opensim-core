@@ -44,6 +44,11 @@ void COMAKSecondaryCoordinate::constructProperties()
 {
     constructProperty_coordinate("");
     constructProperty_max_change(0.05);
+
+    constructProperty_secondary_coordinates();
+    constructProperty_secondary_coupled_coordinate("");
+    constructProperty_secondary_coupled_coordinate_start_value(0.0);
+    constructProperty_secondary_coupled_coordinate_stop_value(0.0);
 }
 
 COMAKCostFunctionParameter::COMAKCostFunctionParameter()
