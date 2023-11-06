@@ -451,7 +451,11 @@ void COMAKInverseKinematicsTool::performIKSecondaryConstraintSimulation() {
             log_info("{:<30} {:<20} {:<20}", coord.getName(), value, delta);
 
         }
-        printDebugInfo(model,state);  
+        if (get_verbose() >= 3) 
+        { 
+            printDebugInfo(model, state); 
+        }
+        
 
         i++;
     }
@@ -563,7 +567,7 @@ void COMAKInverseKinematicsTool::performIKSecondaryConstraintSimulation() {
         q_table.appendRow(state.getTime(), q_row);
 
         log_info("{}",state.getTime());
-        printDebugInfo(model,state);  
+        if (get_verbose() >= 3) { printDebugInfo(model, state); }  
     }
 
     //Compute Coupled Constraint Functions
