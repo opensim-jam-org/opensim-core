@@ -57,16 +57,6 @@ public:
         "generate the coupled constraint functions for the "
         "seconday coordinates for inverse kinematics."
         "The default value is true.")
- 
-    OpenSim_DECLARE_LIST_PROPERTY(secondary_coordinates, std::string, 
-        "List of paths to the Secondary Coordinates in the model.")
-
-    OpenSim_DECLARE_OPTIONAL_PROPERTY(secondary_coupled_coordinate, std::string, 
-        "Path to the coordinate to prescribe in "
-        "secondary_constraint_simulation. In inverse kinematics, "
-        "secondary_coupled_coord will be used as the "
-        "independent_coordinate_name for the CoordinateCouplerConstraints "
-        "for all secondary coordinates. ")
 
     OpenSim_DECLARE_PROPERTY(secondary_constraint_sim_settle_threshold, double,
         "Set the maximum change in secondary coordinates between timesteps "
@@ -82,18 +72,6 @@ public:
         "secondary_coupled_coord is swept (linearly prescribed) through the "
         "range of motion from the  secondary_coupled_coordinate_start_value "
         "to the secondary_coupled_coordinate_stop_value.")
-
-    OpenSim_DECLARE_PROPERTY(secondary_coupled_coordinate_start_value, double, 
-        "Initial Coordinate value for the secondary_coupled_coordinate in the "
-        "secondary_constraint_sim. The units are in meters for translational "
-        "coordinates and degrees for rotational coordinates. "
-        "The default value is 0.0.")
-
-    OpenSim_DECLARE_PROPERTY(secondary_coupled_coordinate_stop_value, double, 
-        "Initial Coordinate value for the secondary_coupled_coordinate in the "
-        "secondary_constraint_sim. The units are in meters for translational "
-        "coordinates and degrees for rotational coordinates. "
-        "The default value is 0.0.")
 
     OpenSim_DECLARE_PROPERTY(
         secondary_constraint_sim_integrator_accuracy, double, 

@@ -80,12 +80,8 @@ void COMAKInverseKinematicsTool::constructProperties()
     constructProperty_results_prefix("");
 
     constructProperty_perform_secondary_constraint_sim(true);
-    constructProperty_secondary_coordinates();
-    constructProperty_secondary_coupled_coordinate("");
     constructProperty_secondary_constraint_sim_settle_threshold(1e-5);
     constructProperty_secondary_constraint_sim_sweep_time(1.0);
-    //constructProperty_secondary_coupled_coordinate_start_value(0.0);
-    //constructProperty_secondary_coupled_coordinate_stop_value(0.0);
     constructProperty_secondary_constraint_sim_integrator_accuracy(1e-6);
     constructProperty_secondary_constraint_sim_internal_step_limit(-1);
     constructProperty_constraint_function_num_interpolation_points(20);
@@ -211,23 +207,26 @@ bool COMAKInverseKinematicsTool::initialize()
     
     _model.initSystem();
     //Verfiy Coordinate Properties 
-    /*   
+    
     for (Coordinate& coord : _model.updComponentList<Coordinate>()) {
         std::string name = coord.getName();
         std::string path = coord.getAbsolutePathString();
 
         //Reset to full path
-        if (get_secondary_coupled_coordinate() == name) {
-            set_secondary_coupled_coordinate(path);
-        }
+        for (int i = 0; i < get_COMAKSecondaryCoordinateSet().getSize(); ++i) {
+            COMAKSecondaryCoordinate curr_joint =
+                    get_COMAKSecondaryCoordinateSet().get(i);
+            if (curr_joint.get_secondary_coupled_coordinate() == name) {
+                curr_joint.set_secondary_coupled_coordinate(path);
+            }
 
-        int ind = getProperty_secondary_coordinates().findIndex(name);
+            int ind = curr_joint.getProperty_secondary_coordinates().findIndex(
+                    name);
 
-        if (ind > -1) {
-            set_secondary_coordinates(ind, path);
+            if (ind > -1) { curr_joint.set_secondary_coordinates(ind, path); }
         }
     }
-    */
+    
     //Make sure Coordinate exists in model and no duplicates
     _n_secondary_coord = 0;
     for (int i = 0; i < get_COMAKSecondaryCoordinateSet().getSize(); ++i) {
@@ -806,14 +805,19 @@ void COMAKInverseKinematicsTool::performIK()
     }
     //Set coordinate types
     for (auto& coord : model.updComponentList<Coordinate>()) {
-        if (getProperty_secondary_coordinates().findIndex(coord.getAbsolutePathString()) > -1) {
-            coord.set_locked(false);
-            coord.set_clamped(false);
-            coord.set_prescribed(false);
-        }
-        else if (coord.getAbsolutePathString() == get_secondary_coupled_coordinate()){
-            coord.set_locked(false);
-            //coord.set_clamped(true);
+        for (int i = 0; i < get_COMAKSecondaryCoordinateSet().getSize(); ++i) {
+            COMAKSecondaryCoordinate curr_joint =
+                    get_COMAKSecondaryCoordinateSet().get(i);
+            if (curr_joint.getProperty_secondary_coordinates().findIndex(
+                        coord.getAbsolutePathString()) > -1) {
+                coord.set_locked(false);
+                coord.set_clamped(false);
+                coord.set_prescribed(false);
+            } else if (coord.getAbsolutePathString() ==
+                       curr_joint.get_secondary_coupled_coordinate()) {
+                coord.set_locked(false);
+                // coord.set_clamped(true);
+            }
         }
     }
 
@@ -1108,9 +1112,9 @@ void COMAKInverseKinematicsTool::printDebugInfo(const Model& model, const SimTK:
     log_debug("{:<30} {:<20} {:<20}", "Unconstrained Coordinate", "Value",
             "Speed");
 
-    for (int i = 0; i < getProperty_secondary_coordinates().size();
+    for (int i = 0; i < _secondary_coord_coupled_path.size();
             ++i) {
-        std::string coord_path = get_secondary_coordinates(i);
+        std::string coord_path = _secondary_coord_coupled_path[i];
         const Coordinate& coord = model.getComponent<Coordinate>(coord_path);
         log_debug("{:<30} {:<20} {:<20}", coord.getName(),
                 coord.getValue(state), coord.getSpeedValue(state));
