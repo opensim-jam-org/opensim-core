@@ -63,6 +63,7 @@ ComakTarget(SimTK::State s, Model* aModel,
     _scale_delta_coord = 1.0;
     _contact_energy_weight = 0.0;
     _non_muscle_actuator_weight = 1000;
+    _verbose = 0;
 
 }
 
@@ -126,13 +127,14 @@ void ComakTarget::initialize(){
     }
     //Precompute Constraint Matrix
     precomputeConstraintMatrix();
-
-    log_debug("Num Parameters: {}", _nParameters);
-    log_debug("Num Constraints: {}", _nConstraints);
-    log_debug("Num Actuators: {}", _nActuators);
-    log_debug("Num Coordinates: {}", _nCoordinates);
-    log_debug("Num Secondary Coordinates: {}", _secondary_coords.size());
-    log_debug("Num Primary Coordinates: {}", _primary_coords.size());
+    if (_verbose > 5) {
+        log_debug("Num Parameters: {}", _nParameters);
+        log_debug("Num Constraints: {}", _nConstraints);
+        log_debug("Num Actuators: {}", _nActuators);
+        log_debug("Num Coordinates: {}", _nCoordinates);
+        log_debug("Num Secondary Coordinates: {}", _secondary_coords.size());
+        log_debug("Num Primary Coordinates: {}", _primary_coords.size());
+    }
 }
 
 void ComakTarget::precomputeConstraintMatrix() {
@@ -617,14 +619,17 @@ void ComakTarget::setParameterBounds(double scale) {
         p++;
     }
     setParameterLimits(lower_bounds, upper_bounds);
+    if (_verbose > 0) {
+        log_debug("{:<20} {:<15} {:<15} {:<15},",
+                "Parameter Limits: ", "initial value", "lower bound",
+                "upper bound");
+        log_debug("------------------------------------------");
 
-    log_debug("{:<20} {:<15} {:<15} {:<15},", "Parameter Limits: ",
-        "initial value", "lower bound", "upper bound");
-    log_debug("------------------------------------------");
-
-    for (int i = 0; i < _nParameters; ++i) {
-        log_debug("{:<3} {:<17} {:<15} {:<15} {:<15}", i, _parameter_names[i],
-            _init_parameters[i], lower_bounds(i), upper_bounds(i));
+        for (int i = 0; i < _nParameters; ++i) {
+            log_debug("{:<3} {:<17} {:<15} {:<15} {:<15}", i,
+                    _parameter_names[i], _init_parameters[i], lower_bounds(i),
+                    upper_bounds(i));
+        }
     }
 }
 

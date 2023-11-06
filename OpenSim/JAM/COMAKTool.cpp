@@ -506,17 +506,18 @@ SimTK::State COMAKTool::initialize() {
     }
 
     computeMuscleVolumes();
+    if (get_verbose() > 5) {
+        log_debug("Muscle Properties");
+        log_debug("{:<15} {:<15} {:<15}", "name ", "Fmax", "Volume");
+        i = 0;
+        for (const Muscle& msl : _model.getComponentList<Muscle>()) {
+            double l0 = msl.get_optimal_fiber_length();
+            double fmax = msl.get_max_isometric_force();
 
-    log_debug("Muscle Properties");
-    log_debug("{:<15} {:<15} {:<15}", "name ", "Fmax", "Volume");
-    i = 0;
-    for (const Muscle& msl : _model.getComponentList<Muscle>()) {
-        double l0 = msl.get_optimal_fiber_length();
-        double fmax = msl.get_max_isometric_force();
-
-        log_debug("{:<15} {:<15} {:<15}", msl.getName(), fmax,
-                _muscle_volumes[i]);
-        i++;
+            log_debug("{:<15} {:<15} {:<15}", msl.getName(), fmax,
+                    _muscle_volumes[i]);
+            i++;
+        }
     }
 
     // Setup optimization parameters
@@ -572,17 +573,17 @@ SimTK::State COMAKTool::initialize() {
             _n_optim_constraints++;
         }
     }
+    if (get_verbose() > 5) {
+        log_debug("IPOPT Parameter Names:");
+        for (int p = 0; p < _n_parameters; p++) {
+            log_debug("{} \t {}", p, _optim_parameter_names[p]);
+        }
 
-    log_debug("IPOPT Parameter Names:");
-    for (int p = 0; p < _n_parameters; p++) {
-        log_debug("{} \t {}", p, _optim_parameter_names[p]);
+        log_debug("IPOPT Constraint Names");
+        for (int p = 0; p < _n_optim_constraints; p++) {
+            log_debug("{} \t {}", p, _optim_constraint_names[p]);
+        }
     }
-
-    log_debug("IPOPT Constraint Names");
-    for (int p = 0; p < _n_optim_constraints; p++) {
-        log_debug("{} \t {}", p, _optim_constraint_names[p]);
-    }
-
     // Organize COMAKCostFunctionParameters
     int msl_cnt = 0;
     SimTK::Vector _gamma(_n_muscles);
@@ -656,28 +657,31 @@ void COMAKTool::performCOMAK() {
     extractKinematicsFromFile();
 
     // Check Cost Function Parameters
-    log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", "Muscles",
-            "muscle_weight", "muscle_emg_gamma", "desired_act", "lower_bound",
-            "upper_bound");
+    if (get_verbose() > 0) {
+        log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", "Muscles",
+                "muscle_weight", "muscle_emg_gamma", "desired_act",
+                "lower_bound", "upper_bound");
 
-    int m = 0;
-    for (Muscle& msl : _model.updComponentList<Muscle>()) {
+        int m = 0;
+        for (Muscle& msl : _model.updComponentList<Muscle>()) {
 
-        log_debug("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", msl.getName(),
-                _cost_muscle_weights.get(m).calcValue(
-                        SimTK::Vector(1, _time[0])),
+            log_debug("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}",
+                    msl.getName(),
+                    _cost_muscle_weights.get(m).calcValue(
+                            SimTK::Vector(1, _time[0])),
 
-                _emg_gamma_weight[m], // Amir
+                    _emg_gamma_weight[m], // Amir
 
-                _cost_muscle_desired_act.get(m).calcValue(
-                        SimTK::Vector(1, _time[0])),
+                    _cost_muscle_desired_act.get(m).calcValue(
+                            SimTK::Vector(1, _time[0])),
 
-                _cost_muscle_act_lower_bound.get(m).calcValue(
-                        SimTK::Vector(1, _time[0])),
+                    _cost_muscle_act_lower_bound.get(m).calcValue(
+                            SimTK::Vector(1, _time[0])),
 
-                _cost_muscle_act_upper_bound.get(m).calcValue(
-                        SimTK::Vector(1, _time[0])));
-        m++;
+                    _cost_muscle_act_upper_bound.get(m).calcValue(
+                            SimTK::Vector(1, _time[0])));
+            m++;
+        }
     }
 
     // Initialize Secondary Kinematics
@@ -964,11 +968,11 @@ void COMAKTool::performCOMAK() {
 
             // Output Optimization Results
             printOptimizationResultsToConsole(_optim_parameters, state);
-
-            log_info("Optimized Acceleration Errors:");
-            log_info("{:<20} {:<20} {:<20} {:<20}", "Name", "Experimental",
-                    "Simulated", "Error");
-
+            if (get_verbose() > 0) {
+                log_info("Optimized Acceleration Errors:");
+                log_info("{:<20} {:<20} {:<20} {:<20}", "Name", "Experimental",
+                        "Simulated", "Error");
+            }
             std::string max_udot_coord = "";
             int k = 0;
             max_udot_error = 0;
@@ -1010,9 +1014,14 @@ void COMAKTool::performCOMAK() {
                     max_udot_coord = coord.getName();
                     max_udot_error = udot_error;
                 }
-
-                log_info("{:<20} {:<20} {:<20} {:<20}", coord.getName(),
-                        observed_udot, coord_udot, udot_error);
+                if (get_verbose() > 10) {
+                    log_info("{:<20} {:<20} {:<20} {:<20}", coord.getName(),
+                            observed_udot, coord_udot, udot_error);
+                } else if (get_verbose() > 0 &&
+                           udot_error > get_udot_tolerance()) {
+                    log_info("{:<20} {:<20} {:<20} {:<20}", coord.getName(),
+                            observed_udot, coord_udot, udot_error);
+                }
             }
 
             log_info("Max udot Error: {} \t Max Error Coord: {}",
@@ -1430,10 +1439,11 @@ SimTK::Vector COMAKTool::equilibriateSecondaryCoordinates() {
         timestepper.stepTo(i * dt);
         state = timestepper.getState();
         result_states.append(state);
-
+        
         log_info("Time: {}", state.getTime());
-        log_info("{:<20} {:<15} {:<15}", "Secondary Coord", "Value",
-                "Value Change (Delta)");
+        if (get_verbose() > 0)
+            log_info("{:<20} {:<15} {:<15}", "Secondary Coord", "Value",
+                    "Value Change (Delta)");
 
         // Compute Delta Coordinate
         max_coord_delta = 0;
@@ -1446,8 +1456,10 @@ SimTK::Vector COMAKTool::equilibriateSecondaryCoordinates() {
 
             if (delta > max_coord_delta) { max_coord_delta = delta; }
             prev_sec_coord_value(k) = value;
-
-            log_info("{:<20} {:<15} {:<15}", coord.getName(), value, delta);
+            if (get_verbose() > 5)
+                log_info("{:<20} {:<15} {:<15}", coord.getName(), value, delta);
+            else if (get_verbose() > 0 && delta > get_settle_threshold())
+                log_info("{:<20} {:<15} {:<15}", coord.getName(), value, delta);
         }
         i++;
     }
@@ -1785,98 +1797,108 @@ void COMAKTool::printOptimizationResultsToConsole(
     }
 
     // Optimization Parameters
-    log_debug("");
-    log_debug("Optimized Muscles:");
-    log_debug("{:<20} {:<20} {:<20}", "name", "activation", "force");
+    if (get_verbose() > 5) {
+        log_debug("");
+        log_debug("Optimized Muscles:");
+        log_debug("{:<20} {:<20} {:<20}", "name", "activation", "force");
 
-    int p = 0;
-    for (int k = 0; k < _n_muscles; ++k) {
-        log_debug("{:<20} {:<20} {:<20}", _optim_parameter_names[p],
-                parameters[p], parameters[p] * _optimal_force[p]);
-        p++;
+        int p = 0;
+        for (int k = 0; k < _n_muscles; ++k) {
+            log_debug("{:<20} {:<20} {:<20}", _optim_parameter_names[p],
+                    parameters[p], parameters[p] * _optimal_force[p]);
+            p++;
+        }
+
+        log_debug("");
+        log_debug("Optimized Non Muscle Actuators:");
+        log_debug("{:<20} {:<20} {:<20}", "name", "activation", "force");
+
+        for (int k = 0; k < _n_non_muscle_actuators; ++k) {
+            log_debug("{:<20} {:<20} {:<20}", _optim_parameter_names[p],
+                    parameters[p], parameters[p] * _optimal_force[p]);
+            p++;
+        }
+
+        log_debug("");
+        log_debug("Optimized Secondardy Coordinates:");
+        log_debug("{:<20} {:<20} {:<20}", "name", "value", "change");
+
+        for (int k = 0; k < _n_secondary_coord; ++k) {
+            double value =
+                    _model.updComponent<Coordinate>(_secondary_coord_path[k])
+                            .getValue(state);
+
+            log_debug("{:<20} {:<20} {:<20}", _secondary_coord_name[k], value,
+                    parameters[_n_actuators + k]);
+        }
+
+        _model.realizeReport(state);
+
+        log_debug("");
+        log_debug("Blankevoort1991Ligaments:");
+        log_debug("{:<20} {:<10} {:<10} {:<10} {:<10} {:<10}", "Name",
+                "Total_Force", "Spring_Force", "Damping_Force", "Lengths",
+                "Strains");
+
+        for (auto& lig : _model.updComponentList<Blankevoort1991Ligament>()) {
+            double total_frc = lig.getOutputValue<double>(state, "total_force");
+            double spring_frc =
+                    lig.getOutputValue<double>(state, "spring_force");
+            double damping_frc =
+                    lig.getOutputValue<double>(state, "damping_force");
+            double length = lig.getOutputValue<double>(state, "length");
+            double strain = lig.getOutputValue<double>(state, "strain");
+
+            log_debug("{:<20} {:<10} {:<10} {:<10} {:<10} {:<10}",
+                    lig.getName(), total_frc, spring_frc, damping_frc, length,
+                    strain);
+        }
     }
-
     log_debug("");
-    log_debug("Optimized Non Muscle Actuators:");
-    log_debug("{:<20} {:<20} {:<20}", "name", "activation", "force");
-
-    for (int k = 0; k < _n_non_muscle_actuators; ++k) {
-        log_debug("{:<20} {:<20} {:<20}", _optim_parameter_names[p],
-                parameters[p], parameters[p] * _optimal_force[p]);
-        p++;
-    }
-
-    log_debug("");
-    log_debug("Optimized Secondardy Coordinates:");
-    log_debug("{:<20} {:<20} {:<20}", "name", "value", "change");
-
-    for (int k = 0; k < _n_secondary_coord; ++k) {
-        double value = _model.updComponent<Coordinate>(_secondary_coord_path[k])
-                               .getValue(state);
-
-        log_debug("{:<20} {:<20} {:<20}", _secondary_coord_name[k], value,
-                parameters[_n_actuators + k]);
-    }
-
-    _model.realizeReport(state);
-
-    log_debug("");
-    log_debug("Blankevoort1991Ligaments:");
-    log_debug("{:<20} {:<10} {:<10} {:<10} {:<10} {:<10}", "Name",
-            "Total_Force", "Spring_Force", "Damping_Force", "Lengths",
-            "Strains");
-
-    for (auto& lig : _model.updComponentList<Blankevoort1991Ligament>()) {
-        double total_frc = lig.getOutputValue<double>(state, "total_force");
-        double spring_frc = lig.getOutputValue<double>(state, "spring_force");
-        double damping_frc = lig.getOutputValue<double>(state, "damping_force");
-        double length = lig.getOutputValue<double>(state, "length");
-        double strain = lig.getOutputValue<double>(state, "strain");
-
-        log_debug("{:<20} {:<10} {:<10} {:<10} {:<10} {:<10}", lig.getName(),
-                total_frc, spring_frc, damping_frc, length, strain);
-    }
-
-    log_debug("");
-    log_debug("Smith2018ArticularContactForce: casting_mesh");
-    log_debug("{:<20} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10}", "Name",
-            "Num_Contacting_Tri", "Contact_Force", "Contact_Moment",
-            "Mean Pressure", "Max Pressure", "Mean Proximity", "Max Proximity");
-
-    for (auto& cnt :
-            _model.updComponentList<Smith2018ArticularContactForce>()) {
-
-        int num_cnt_tri = cnt.getOutputValue<int>(
-                state, "casting_num_contacting_triangles");
-        SimTK::Vec3 cnt_frc = cnt.getOutputValue<SimTK::Vec3>(
-                state, "casting_total_contact_force");
-        SimTK::Vec3 cnt_moment = cnt.getOutputValue<SimTK::Vec3>(
-                state, "casting_total_contact_moment");
-
-        double mean_prs = cnt.getOutputValue<double>(
-                state, "casting_total_mean_pressure");
-        double max_prs =
-                cnt.getOutputValue<double>(state, "casting_total_max_pressure");
-        double mean_prx = cnt.getOutputValue<double>(
-                state, "casting_total_mean_proximity");
-        double max_prx = cnt.getOutputValue<double>(
-                state, "casting_total_max_proximity");
-
+    if (get_verbose() > -1) {
+        _model.realizeReport(state);
+        log_debug("Smith2018ArticularContactForce: casting_mesh");
         log_debug("{:<20} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10}",
-                cnt.getName(), num_cnt_tri, cnt_frc, cnt_moment, mean_prs,
-                max_prs, mean_prx, max_prx);
+                "Name", "Num_Contacting_Tri", "Contact_Force", "Contact_Moment",
+                "Mean Pressure", "Max Pressure", "Mean Proximity",
+                "Max Proximity");
+
+        for (auto& cnt :
+                _model.updComponentList<Smith2018ArticularContactForce>()) {
+
+            int num_cnt_tri = cnt.getOutputValue<int>(
+                    state, "casting_num_contacting_triangles");
+            SimTK::Vec3 cnt_frc = cnt.getOutputValue<SimTK::Vec3>(
+                    state, "casting_total_contact_force");
+            SimTK::Vec3 cnt_moment = cnt.getOutputValue<SimTK::Vec3>(
+                    state, "casting_total_contact_moment");
+
+            double mean_prs = cnt.getOutputValue<double>(
+                    state, "casting_total_mean_pressure");
+            double max_prs = cnt.getOutputValue<double>(
+                    state, "casting_total_max_pressure");
+            double mean_prx = cnt.getOutputValue<double>(
+                    state, "casting_total_mean_proximity");
+            double max_prx = cnt.getOutputValue<double>(
+                    state, "casting_total_max_proximity");
+
+            log_debug("{:<20} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10}",
+                    cnt.getName(), num_cnt_tri, cnt_frc, cnt_moment, mean_prs,
+                    max_prs, mean_prx, max_prx);
+        }
     }
-
     log_debug("");
-    log_debug("Model Coordinates");
-    log_debug("{:<20} {:<10} {:<10} {:<10}", "Name", "Value", "Speed",
-            "Acceleration");
+    if (get_verbose() > 5) {
+        log_debug("Model Coordinates");
+        log_debug("{:<20} {:<10} {:<10} {:<10}", "Name", "Value", "Speed",
+                "Acceleration");
 
-    for (auto& coord : _model.updComponentList<Coordinate>()) {
+        for (auto& coord : _model.updComponentList<Coordinate>()) {
 
-        log_debug("{:<20} {:<10} {:<10} {:<10}", coord.getName(),
-                coord.getValue(state), coord.getSpeedValue(state),
-                coord.getAccelerationValue(state));
+            log_debug("{:<20} {:<10} {:<10} {:<10}", coord.getName(),
+                    coord.getValue(state), coord.getSpeedValue(state),
+                    coord.getAccelerationValue(state));
+        }
     }
 }
 

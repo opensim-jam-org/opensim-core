@@ -142,6 +142,7 @@ void JointMechanicsTool::constructProperties()
     constructProperty_AnalysisSet(AnalysisSet());
     constructProperty_geometry_folder("");
     constructProperty_use_visualizer(false);
+    constructProperty_verbose(0);
 
 }
 

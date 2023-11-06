@@ -309,6 +309,10 @@ public:
         "to display the model posed at each time step. "
         " The default value is false.")
 
+    OpenSim_DECLARE_PROPERTY(verbose, int,
+                            "Controlling output detail. Set 10 for all details, "
+                            "Set 5 for brief details, set 0 for min details")
+
 
 //=============================================================================
 // METHODS

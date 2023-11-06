@@ -262,7 +262,7 @@ comak.set_external_loads_file('../models/healthy/experimental_data/motion_analys
 comak.set_results_directory(comak_result_dir);
 comak.set_results_prefix(results_basename);
 comak.set_replace_force_set(false);
-comak.set_force_set_file('../models/healthy/lenhart2015/lenhart2015_reserve_actuators.xml');
+comak.set_force_set_file('../models/healthy/lenhart2015_BothKnees/lenhart2015_BothKnees_reserve_actuators.xml');
 comak.set_start_time(1.16);
 comak.set_stop_time(2.32);
 comak.set_time_step(0.01);
@@ -276,40 +276,38 @@ comak.set_prescribed_coordinates(4,'/jointset/gnd_pelvis/pelvis_list');
 comak.set_prescribed_coordinates(5,'/jointset/gnd_pelvis/pelvis_rot');
 comak.set_prescribed_coordinates(6,'/jointset/subtalar_r/subt_angle_r');
 comak.set_prescribed_coordinates(7,'/jointset/mtp_r/mtp_angle_r');
-comak.set_prescribed_coordinates(8,'/jointset/hip_l/hip_flex_l');
-comak.set_prescribed_coordinates(9,'/jointset/hip_l/hip_add_l');
-comak.set_prescribed_coordinates(10,'/jointset/hip_l/hip_rot_l');
-comak.set_prescribed_coordinates(11,'/jointset/pf_l/pf_l_r3');
-comak.set_prescribed_coordinates(12,'/jointset/pf_l/pf_l_tx');
-comak.set_prescribed_coordinates(13,'/jointset/pf_l/pf_l_ty');
-comak.set_prescribed_coordinates(14,'/jointset/knee_l/knee_flex_l');
-comak.set_prescribed_coordinates(15,'/jointset/ankle_l/ankle_flex_l');
-comak.set_prescribed_coordinates(16,'/jointset/subtalar_l/subt_angle_l');
-comak.set_prescribed_coordinates(17,'/jointset/mtp_l/mtp_angle_l');
-comak.set_prescribed_coordinates(18,'/jointset/pelvis_torso/lumbar_ext');
-comak.set_prescribed_coordinates(19,'/jointset/pelvis_torso/lumbar_latbend');
-comak.set_prescribed_coordinates(20,'/jointset/pelvis_torso/lumbar_rot');
-comak.set_prescribed_coordinates(21,'/jointset/torso_neckhead/neck_ext');
-comak.set_prescribed_coordinates(22,'/jointset/torso_neckhead/neck_latbend');
-comak.set_prescribed_coordinates(23,'/jointset/torso_neckhead/neck_rot');
-comak.set_prescribed_coordinates(24,'/jointset/acromial_r/arm_add_r');
-comak.set_prescribed_coordinates(25,'/jointset/acromial_r/arm_flex_r');
-comak.set_prescribed_coordinates(26,'/jointset/acromial_r/arm_rot_r');
-comak.set_prescribed_coordinates(27,'/jointset/elbow_r/elbow_flex_r');
-comak.set_prescribed_coordinates(28,'/jointset/radioulnar_r/pro_sup_r');
-comak.set_prescribed_coordinates(29,'/jointset/radius_hand_r/wrist_flex_r');
-comak.set_prescribed_coordinates(30,'/jointset/acromial_l/arm_add_l');
-comak.set_prescribed_coordinates(31,'/jointset/acromial_l/arm_flex_l');
-comak.set_prescribed_coordinates(32,'/jointset/acromial_l/arm_rot_l');
-comak.set_prescribed_coordinates(33,'/jointset/elbow_l/elbow_flex_l');
-comak.set_prescribed_coordinates(34,'/jointset/radioulnar_l/pro_sup_l');
-comak.set_prescribed_coordinates(35,'/jointset/radius_hand_l/wrist_flex_l');
+comak.set_prescribed_coordinates(8,'/jointset/subtalar_l/subt_angle_l');
+comak.set_prescribed_coordinates(9,'/jointset/mtp_l/mtp_angle_l');
+comak.set_prescribed_coordinates(10,'/jointset/pelvis_torso/lumbar_ext');
+comak.set_prescribed_coordinates(11,'/jointset/pelvis_torso/lumbar_latbend');
+comak.set_prescribed_coordinates(12,'/jointset/pelvis_torso/lumbar_rot');
+comak.set_prescribed_coordinates(13,'/jointset/torso_neckhead/neck_ext');
+comak.set_prescribed_coordinates(14,'/jointset/torso_neckhead/neck_latbend');
+comak.set_prescribed_coordinates(15,'/jointset/torso_neckhead/neck_rot');
+comak.set_prescribed_coordinates(16,'/jointset/acromial_r/arm_add_r');
+comak.set_prescribed_coordinates(17,'/jointset/acromial_r/arm_flex_r');
+comak.set_prescribed_coordinates(18,'/jointset/acromial_r/arm_rot_r');
+comak.set_prescribed_coordinates(19,'/jointset/elbow_r/elbow_flex_r');
+comak.set_prescribed_coordinates(20,'/jointset/radioulnar_r/pro_sup_r');
+comak.set_prescribed_coordinates(21,'/jointset/radius_hand_r/wrist_flex_r');
+comak.set_prescribed_coordinates(22,'/jointset/acromial_l/arm_add_l');
+comak.set_prescribed_coordinates(23,'/jointset/acromial_l/arm_flex_l');
+comak.set_prescribed_coordinates(24,'/jointset/acromial_l/arm_rot_l');
+comak.set_prescribed_coordinates(25,'/jointset/elbow_l/elbow_flex_l');
+comak.set_prescribed_coordinates(26,'/jointset/radioulnar_l/pro_sup_l');
+comak.set_prescribed_coordinates(27,'/jointset/radius_hand_l/wrist_flex_l');
  
 comak.set_primary_coordinates(0,'/jointset/hip_r/hip_flex_r');
 comak.set_primary_coordinates(1,'/jointset/hip_r/hip_add_r');
 comak.set_primary_coordinates(2,'/jointset/hip_r/hip_rot_r');
 comak.set_primary_coordinates(3,'/jointset/knee_r/knee_flex_r');
 comak.set_primary_coordinates(4,'/jointset/ankle_r/ankle_flex_r');
+
+comak.set_primary_coordinates(5,'/jointset/hip_l/hip_flex_l');
+comak.set_primary_coordinates(6,'/jointset/hip_l/hip_add_l');
+comak.set_primary_coordinates(7,'/jointset/hip_l/hip_rot_l');
+comak.set_primary_coordinates(8,'/jointset/knee_l/knee_flex_l');
+comak.set_primary_coordinates(9,'/jointset/ankle_l/ankle_flex_l');
 
 secondary_coord_set = COMAKSecondaryCoordinateSet(); 
 secondary_coord = COMAKSecondaryCoordinate();
@@ -369,6 +367,61 @@ secondary_coord.set_max_change(0.005);
 secondary_coord.set_coordinate('/jointset/pf_r/pf_tz_r');
 secondary_coord_set.cloneAndAppend(secondary_coord);
 
+secondary_coord.setName('knee_add_l');
+secondary_coord.set_max_change(0.01);
+secondary_coord.set_coordinate('/jointset/knee_l/knee_add_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('knee_rot_l');
+secondary_coord.set_max_change(0.01);
+secondary_coord.set_coordinate('/jointset/knee_l/knee_rot_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('knee_tx_l');
+secondary_coord.set_max_change(0.05);
+secondary_coord.set_coordinate('/jointset/knee_l/knee_tx_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('knee_ty_l');
+secondary_coord.set_max_change(0.05);
+secondary_coord.set_coordinate('/jointset/knee_l/knee_ty_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('knee_tz_l');
+secondary_coord.set_max_change(0.05);
+secondary_coord.set_coordinate('/jointset/knee_l/knee_tz_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('pf_flex_l');
+secondary_coord.set_max_change(0.01);
+secondary_coord.set_coordinate('/jointset/pf_l/pf_flex_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('pf_rot_l');
+secondary_coord.set_max_change(0.01);
+secondary_coord.set_coordinate('/jointset/pf_l/pf_rot_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('pf_tilt_l');
+secondary_coord.set_max_change(0.01);
+secondary_coord.set_coordinate('/jointset/pf_l/pf_tilt_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('pf_tx_l');
+secondary_coord.set_max_change(0.005);
+secondary_coord.set_coordinate('/jointset/pf_l/pf_tx_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('pf_ty_l');
+secondary_coord.set_max_change(0.005);
+secondary_coord.set_coordinate('/jointset/pf_l/pf_ty_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
+secondary_coord.setName('pf_tz_l');
+secondary_coord.set_max_change(0.005);
+secondary_coord.set_coordinate('/jointset/pf_l/pf_tz_l');
+secondary_coord_set.cloneAndAppend(secondary_coord);
+
 comak.set_COMAKSecondaryCoordinateSet(secondary_coord_set);
 
 comak.set_settle_secondary_coordinates_at_start(true);
@@ -395,14 +448,14 @@ comak.set_activation_exponent(2);
 comak.set_contact_energy_weight(0);
 comak.set_non_muscle_actuator_weight(1000);
 comak.set_model_assembly_accuracy(1e-12);
-comak.set_use_visualizer(false);
-comak.set_verbose(2);
+comak.set_use_visualizer(true);
+comak.set_verbose(5);
 
 comak.print('./inputs/comak_settings.xml');
 
 disp('Running COMAK Tool...')
 comak.run();
-
+zxc
 %% Perform Joint Mechanics Analysis
 jnt_mech = JointMechanicsTool();
 jnt_mech.set_model_file(model_file);
