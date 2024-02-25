@@ -656,34 +656,6 @@ void COMAKTool::performCOMAK() {
     // Read Kinematics and Compute Desired Accelerations
     extractKinematicsFromFile();
 
-    // Check Cost Function Parameters
-    if (get_verbose() > 0) {
-        log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", "time[0]", "Muscles",
-                "muscle_weight", "muscle_emg_gamma", "desired_act",
-                "lower_bound", "upper_bound");
-
-        int m = 0;
-        for (Muscle& msl : _model.updComponentList<Muscle>()) {
-
-            log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}",
-                    msl.getName(),
-                    _cost_muscle_weights.get(m).calcValue(
-                            SimTK::Vector(1, _time[0])),
-
-                    _emg_gamma_weight[m], // Amir
-
-                    _cost_muscle_desired_act.get(m).calcValue(
-                            SimTK::Vector(1, _time[0])),
-
-                    _cost_muscle_act_lower_bound.get(m).calcValue(
-                            SimTK::Vector(1, _time[0])),
-
-                    _cost_muscle_act_upper_bound.get(m).calcValue(
-                            SimTK::Vector(1, _time[0])));
-            m++;
-        }
-    }
-
     // Initialize Secondary Kinematics
     SimTK::Vector init_secondary_values(_n_secondary_coord);
 
@@ -769,6 +741,31 @@ void COMAKTool::performCOMAK() {
     }
     _prev_state = state;
 
+
+     // Check Cost Function Parameters
+    if (get_verbose() > 0) {
+        log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}",
+                "Muscles", "muscle_weight", "muscle_emg_gamma", "desired_act",
+                "lower_bound", "upper_bound");
+            int m = 0;
+        for (Muscle& msl : _model.updComponentList<Muscle>()) {
+            log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", msl.getName(),
+                    _cost_muscle_weights.get(m).calcValue(
+                            SimTK::Vector(1, get_start_time())),
+
+                    _emg_gamma_weight[m],
+
+                    _cost_muscle_desired_act.get(m).calcValue(
+                            SimTK::Vector(1, get_start_time())),
+
+                    _cost_muscle_act_lower_bound.get(m).calcValue(
+                            SimTK::Vector(1, get_start_time())),
+
+                    _cost_muscle_act_upper_bound.get(m).calcValue(
+                            SimTK::Vector(1, get_start_time())));
+            m++;
+        }
+    }
     // Loop over each time step
     //------------------------
 
@@ -783,7 +780,25 @@ void COMAKTool::performCOMAK() {
 
         log_info("Frame: {} / {}", ++frame_num, _n_out_frames);
         log_info("Time: {}", _time[i]);
-
+        
+        // Set Desired Activations
+        SimTK::Vector desired_act(_n_muscles);
+        for (int m = 0; m < _n_muscles; ++m) {
+            desired_act(m) = _cost_muscle_desired_act.get(m).calcValue(
+                    SimTK::Vector(1, _time[i]));
+        }
+        // print EMGs
+        if (get_is_emg_assisted() && (get_verbose() > 0)) {
+            log_info("{:<20}", "--------Enveloped EMGs to be followed:");
+            for (int m = 0; m < _n_muscles; ++m) {
+                Muscle& msl = _model.updComponent<Muscle>(_muscle_path[m]);
+                if (desired_act(m) > 0.0) {
+                    log_info("{:<20} {:<20}", msl.getName(),
+                            _cost_muscle_desired_act.get(m).calcValue(
+                                    SimTK::Vector(1, _time[i])));
+                }
+            }
+        }
         // Set Primary Qs and Us to experimental values
         for (int j = 0; j < _n_primary_coord; ++j) {
             Coordinate& coord =
@@ -902,13 +917,7 @@ void COMAKTool::performCOMAK() {
             }
             target.setCostFunctionWeight(msl_weight);
 
-            // Set Desired Activations
-            SimTK::Vector desired_act(_n_muscles);
-            for (int m = 0; m < _n_muscles; ++m) {
-                desired_act(m) = _cost_muscle_desired_act.get(m).calcValue(
-                        SimTK::Vector(1, _time[i]));
-                log_info("{:<20}", desired_act(m));
-            }
+          
             target.setDesiredActivation(desired_act);
 
             target.initialize();
@@ -1512,8 +1521,8 @@ void COMAKTool::extractKinematicsFromFile() {
     Array<double> in_time;
     store.getTimeColumn(in_time);
 
-    if (get_start_time() == -1) { set_start_time(in_time.get(0)); }
-    if (get_stop_time() == -1) { set_stop_time(in_time.getLast()); }
+    if (get_start_time() < 0) { set_start_time(in_time.get(0)); }
+    if (get_stop_time() < 0) { set_stop_time(in_time.getLast()); }
 
     if (get_start_time() + get_time_step() < in_time.get(0)) {
         OPENSIM_THROW(Exception, "ERROR: start_time in COMAKTool preceeds "
