@@ -658,14 +658,14 @@ void COMAKTool::performCOMAK() {
 
     // Check Cost Function Parameters
     if (get_verbose() > 0) {
-        log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", "Muscles",
+        log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20} {:<20}", "time[0]", "Muscles",
                 "muscle_weight", "muscle_emg_gamma", "desired_act",
                 "lower_bound", "upper_bound");
 
         int m = 0;
         for (Muscle& msl : _model.updComponentList<Muscle>()) {
 
-            log_debug("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}",
+            log_info("{:<20} {:<20} {:<20} {:<20} {:<20} {:<20}",
                     msl.getName(),
                     _cost_muscle_weights.get(m).calcValue(
                             SimTK::Vector(1, _time[0])),
@@ -907,6 +907,7 @@ void COMAKTool::performCOMAK() {
             for (int m = 0; m < _n_muscles; ++m) {
                 desired_act(m) = _cost_muscle_desired_act.get(m).calcValue(
                         SimTK::Vector(1, _time[i]));
+                log_info("{:<20}", desired_act(m));
             }
             target.setDesiredActivation(desired_act);
 
@@ -1014,7 +1015,7 @@ void COMAKTool::performCOMAK() {
                     max_udot_coord = coord.getName();
                     max_udot_error = udot_error;
                 }
-                if (get_verbose() > 10) {
+                if (get_verbose() > 9) {
                     log_info("{:<20} {:<20} {:<20} {:<20}", coord.getName(),
                             observed_udot, coord_udot, udot_error);
                 } else if (get_verbose() > 0 &&
