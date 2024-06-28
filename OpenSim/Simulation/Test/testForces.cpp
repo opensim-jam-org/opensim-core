@@ -2405,6 +2405,9 @@ void testBlankevoort1991Ligament() {
 }
 
 /*
+* testSmith2018ArticularContactForce
+*
+
 Test 1
 Half sphere is collided with plane
 
@@ -2439,10 +2442,11 @@ void testSmith2018ArticularContactForce() {
     double radius = 0.1;
     
     OpenSim::Body* plane = new OpenSim::Body("plane", 0.0, SimTK::Vec3(0),
-        mass * SimTK::Inertia::brick(0.05, 0.05, 0.05));
+        SimTK::Inertia(0));
+        //mass * SimTK::Inertia::brick(0.05, 0.05, 0.05));
 
-    OpenSim::Body* indenter = new OpenSim::Body("indenter", mass, SimTK::Vec3(0),
-        mass * SimTK::Inertia::brick(0.05, 0.05, 0.05));
+    OpenSim::Body* indenter = new OpenSim::Body("indenter", mass,
+        SimTK::Vec3(0), mass * SimTK::Inertia::brick(0.05, 0.05, 0.05));
 
     //indenter->attachGeometry(new Mesh("half_sphere_10cm_radius.stl"));
 
@@ -2505,7 +2509,7 @@ void testSmith2018ArticularContactForce() {
     contact->set_use_lumped_contact_model(true);
     model.addForce(contact);
 
-    //model.setUseVisualizer(true);
+    model.setUseVisualizer(true);
     SimTK::State& state = model.initSystem();
     contact->setModelingOption(state, "flip_meshes", 1);
 
@@ -2520,8 +2524,9 @@ void testSmith2018ArticularContactForce() {
 
     model.realizeReport(state);
 
-    //const ModelVisualizer& viz = model.getVisualizer();
-    
+    const ModelVisualizer& viz = model.getVisualizer();
+    viz.show(state);
+
     // Verify Contact Area
     double expected_casting_area = 2 * SimTK::Pi * SimTK::square(radius);
     double reported_casting_area = contact->getOutputValue<double>(
