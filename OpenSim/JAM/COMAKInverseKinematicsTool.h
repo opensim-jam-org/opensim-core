@@ -29,9 +29,9 @@ namespace OpenSim {
  This tool enables inverse kinematics to be performed for models 
  that include joints where some Coordinates (degrees of freedom) can be 
  accurately determined from motion capture (marker_determined) and others 
- cannot (secondary). A forward dynamic simulation is performed to obstrain a 
+ cannot (secondary). A forward dynamic simulation is performed to obtain a 
  set of constraint functions to couple the secondary coordinates to specific 
-marker determined coordinates.  
+ marker determined coordinates.  
  *
  * @author Colin Smith
 
