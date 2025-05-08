@@ -73,6 +73,7 @@
 #include <OpenSim/Simulation/Wrap/WrapCylinder.h>
 #include <OpenSim/Simulation/Wrap/WrapTorus.h>
 #include <OpenSim/Simulation/Wrap/WrapEllipsoid.h>
+#include <OpenSim/Simulation/Wrap/WrapMesh.h>
 #include <OpenSim/Simulation/Wrap/WrapObjectSet.h>
 #include <OpenSim/Simulation/Wrap/PathWrap.h>
 #include <OpenSim/Simulation/Wrap/PathWrapSet.h>

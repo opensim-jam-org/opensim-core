@@ -143,6 +143,85 @@ namespace {
     }
 }
 
+TEST_CASE("testWrapMesh") {
+    const double off = 0.05;
+
+    Model model = Model();
+    auto& ground = model.updGround();
+    
+
+
+    auto femur = new OpenSim::Body("femur", 1, Vec3(0), Inertia(0.1, 0.1, 0.01));
+    WrapMesh femur_mesh = WrapMesh("lenhart2015-R-femur-bone_remesh.stl");
+    //WrapSphere femur_mesh = WrapSphere();
+    //femur_mesh.set_radius(0.02);
+    //femur_mesh.set_translation(Vec3(0,0.0, -0.03));
+    femur_mesh.setName("femur_wrap");
+    femur->addWrapObject(&femur_mesh);
+    model.addComponent(femur);
+    
+
+    auto ground_femur = new WeldJoint("ground_femur", ground, *femur);
+
+    model.addJoint(ground_femur);
+
+    auto tibia = new OpenSim::Body("tibia", 1, Vec3(0), Inertia(0.1, 0.1, 0.01));
+    WrapMesh tibia_mesh = WrapMesh("lenhart2015-R-tibia-bone_remesh.stl");
+    //WrapSphere tibia_mesh = WrapSphere();
+    //tibia_mesh.set_radius(0.02);
+    //tibia_mesh.set_translation(Vec3(0, -0.02, -0.02));
+
+    tibia_mesh.setName("tibia_wrap");
+    
+    model.addComponent(tibia);
+    tibia->addWrapObject(&tibia_mesh);
+    
+    auto knee_joint = new PinJoint("knee", *femur, *tibia);
+    model.addComponent(knee_joint);   
+
+    model.finalizeConnections();
+
+    PathSpring spring1 =
+        PathSpring("spring1", 1.0, 0.1, 0.01);
+    spring1.updGeometryPath().
+        appendNewPathPoint("origin", *femur, Vec3(0.0097, 0.02, -0.0364));
+    spring1.updGeometryPath().
+        appendNewPathPoint("insert", *tibia, Vec3(0.0087, -0.0491, -0.0227));
+
+    spring1.updGeometryPath().addPathWrap(femur_mesh);
+    spring1.updGeometryPath().addPathWrap(tibia_mesh);
+    
+    
+    model.addComponent(&spring1);
+
+
+    model.finalizeConnections();
+    model.setUseVisualizer(true);
+    State& state = model.initSystem();
+
+    SimTK::Visualizer& viz = model.updVisualizer().updSimbodyVisualizer();
+    viz.setBackgroundType(viz.SolidColor);
+    viz.setShowSimTime(true);
+
+    PathWrapSet wrap_set = spring1.getGeometryPath().getWrapSet();
+
+    for (int i = 0; i < wrap_set.getSize(); ++i) {
+       std::cout << wrap_set.get(i).getWrapObjectName() << std::endl;
+    }
+    Coordinate& flexion = knee_joint->upd_coordinates(0);
+
+    viz.drawFrameNow(state);
+    for (int i =0; i <=90; ++i){
+        flexion.setValue(state, -SimTK::convertDegreesToRadians(i));
+        model.realizePosition(state);
+        viz.drawFrameNow(state);
+    }
+
+    double len1 = 1.0;
+    double len2 = 1.0;
+    CHECK_THAT(len1 - len2, WithinAbs(0.0, SimTK::Eps));
+}
+
 TEST_CASE("testWrapCylinder") {
     const double r = 0.25;
     const double off = sqrt(2)*r-0.05;

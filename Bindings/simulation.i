@@ -167,6 +167,7 @@ namespace OpenSim {
 %include <OpenSim/Simulation/Wrap/WrapCylinder.h>
 %include <OpenSim/Simulation/Wrap/WrapTorus.h>
 %include <OpenSim/Simulation/Wrap/WrapEllipsoid.h>
+%include <OpenSim/Simulation/Wrap/WrapMesh.h>
 %include <OpenSim/Simulation/Wrap/PathWrap.h>
 %template(SetPathWrap) OpenSim::Set<OpenSim::PathWrap, OpenSim::Object>;
 %include <OpenSim/Simulation/Wrap/PathWrapSet.h>

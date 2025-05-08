@@ -99,6 +99,8 @@
 #include "Wrap/WrapCylinderObst.h"
 #include "Wrap/WrapSphereObst.h"
 #include "Wrap/WrapDoubleCylinderObst.h"
+#include "Wrap/WrapMesh.h"
+
 
 #include "SimbodyEngine/SimbodyEngine.h"
 #include "SimbodyEngine/Body.h"

@@ -103,6 +103,7 @@
 #include "Wrap/WrapEllipsoid.h"
 #include "Wrap/WrapSphere.h"
 #include "Wrap/WrapTorus.h"
+#include "Wrap/WrapMesh.h"
 #include "Wrap/WrapObjectSet.h"
 #include "Wrap/WrapCylinderObst.h"
 #include "Wrap/WrapSphereObst.h"
