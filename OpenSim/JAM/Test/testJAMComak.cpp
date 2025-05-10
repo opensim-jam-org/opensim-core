@@ -18,14 +18,17 @@
 
 #include <OpenSim/JAM/COMAKTool.h>
 #include <OpenSim/JAM/COMAKInverseKinematicsTool.h>
+#include <OpenSim/JAM/JointMechanicsTool.h>
 #include <OpenSim/Tools/InverseDynamicsTool.h>
 
 using namespace OpenSim;
 
 void testCOMAK();
+void testJointMechanics();
 
 int main() {
     try {
+        testJointMechanics();
         //testCOMAK();
 
     } catch (const Exception& e) {
@@ -34,6 +37,20 @@ int main() {
     }
     std::cout << "Done" << std::endl;
     return 0;
+}
+
+void testJointMechanics() {
+
+    std::string settings_file = "C:\\Users\\csmith\\research\\rtsa\\rom_results\\C230254\\gsphere_inf_hum_3\\inputs\\joint_mechanics_settings_adduction.xml";
+    
+   // SimTK::PolygonalMesh mesh = SimTK::PolygonalMesh();
+    //mesh.loadFile("C:\\Users\\csmith\\research\\rtsa\\models\\C230254\\Geometry\\scapula.stl");
+
+    JointMechanicsTool jmt = JointMechanicsTool(settings_file);
+    jmt.set_use_visualizer(false);
+    jmt.run();
+
+
 }
 
 void testCOMAK() {

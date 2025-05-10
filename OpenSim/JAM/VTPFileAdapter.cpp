@@ -174,6 +174,48 @@ namespace OpenSim {
             }
             CellData.appendNode(DataArray);
         }
+
+        // Cell Vec3 values
+        std::string vec_names;
+        for (int i = 0; i < (int)_faceVec3Names.size(); ++i) {
+            cell_names.append(" " + _faceVec3Names[i]);
+        }
+        for (int i = 0; i < (int)_faceVec3Names.size(); ++i) {
+            Xml::Element DataArray("DataArray");
+            DataArray.setAttributeValue("type", "Float32");
+            DataArray.setAttributeValue("Name", _faceVec3Names[i]);
+            DataArray.setAttributeValue("NumberOfComponents", "3");
+
+            std::string cdata;
+            if (_data_format == "ascii") {
+                DataArray.setAttributeValue("format", "ascii");
+                for (int j = 0; j < _faceVec3[i].size(); ++j) {
+                    for (int k = 0; k < 3; ++k) {
+                        cdata.append(std::to_string(_faceVec3[i](j)(k)) + " ");
+                    }
+                }
+                DataArray.setValue(cdata);
+            }
+
+            else if (_data_format == "binary") {
+                DataArray.setAttributeValue("format", "binary");
+
+                std::vector<float> data;
+                for (int j = 0; j < _faceVec3[i].size(); ++j) {
+                    for (int k = 0; k < 3; ++k) {
+                        data.push_back((float)_faceVec3[i](j)(k));
+                    }
+                }
+
+                std::string encode_data = encodeFloatDataVTPBase64(data);
+                DataArray.setValue(encode_data);
+            }
+            CellData.appendNode(DataArray);
+        }
+
+        CellData.setAttributeValue("Vectors", vec_names);
+
+
         Piece.appendNode(CellData);
 
         //Points

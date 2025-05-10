@@ -380,6 +380,11 @@ void Smith2018ContactMesh::initializeMesh()
         SimTK::Vec3 v2 = _mesh.getVertexPosition(v2_i);
         SimTK::Vec3 v3 = _mesh.getVertexPosition(v3_i);
 
+        if (v1 == v2 || v2 == v3 || v3 == v1) {
+            OPENSIM_THROW(Exception, "Smith2018ContactMesh " + getName() +
+                " Triangle Number (0-index): " + std::to_string(i) + " has overlapping vertices.");
+        }
+
         // Compute Triangle Center
         _tri_center(i) = (v1 + v2 + v3) / 3.0;
 
@@ -511,9 +516,13 @@ void Smith2018ContactMesh::computeVariableThickness() {
     double min_thickness = get_min_thickness();
     double max_thickness = get_max_thickness();
 
+
     // Load mesh_back_file
     std::string file = findMeshFile(get_mesh_back_file());
     _mesh_back.loadFile(file);
+
+    _num_mesh_back_vertices = _mesh_back.getNumVertices();
+    _num_mesh_back_faces = _mesh_back.getNumFaces();
 
     //Scale _mesh_back
     SimTK::Real xscale = get_scale_factors()(0);
@@ -560,6 +569,73 @@ void Smith2018ContactMesh::computeVariableThickness() {
             depth = min_thickness;
         }
         _tri_thickness(i) = depth;
+    }
+
+    //calc mesh back vert normals
+    SimTK::Vector_<SimTK::Vec3> vert_normal(_num_mesh_back_vertices, SimTK::Vec3(0));
+
+    for (int i = 0; i < _num_mesh_back_faces; ++i) {
+
+        int v1_i = _mesh_back.getFaceVertex(i, 0);
+        int v2_i = _mesh_back.getFaceVertex(i, 1);
+        int v3_i = _mesh_back.getFaceVertex(i, 2);
+
+
+        SimTK::Vec3 v1 = _mesh_back.getVertexPosition(v1_i);
+        SimTK::Vec3 v2 = _mesh_back.getVertexPosition(v2_i);
+        SimTK::Vec3 v3 = _mesh_back.getVertexPosition(v3_i);
+
+        if (v1 == v2 || v2 == v3 || v3 == v1) {
+            OPENSIM_THROW(Exception, "Smith2018ContactMesh mesh_back " + getName() +
+                " Triangle Number (0-index): " + std::to_string(i) + " has overlapping vertices.");
+        }
+
+        // Compute Triangle Normal
+        
+        SimTK::Vec3 e1 = v2 - v1;
+        SimTK::Vec3 e2 = v3 - v1;
+
+        SimTK::Vec3 face_normal = SimTK::cross(e1, e2);
+
+        for (int j = 0; j < _mesh_back.getNumVerticesForFace(i); ++j) {
+            int v = _mesh_back.getFaceVertex(i, j);
+            vert_normal(v) = +face_normal;
+        }
+    }
+    for (int i = 0; i < _num_mesh_back_vertices; ++i) {
+        //std::cout << vert_normal(i) << std::endl;
+        vert_normal(i) = vert_normal(i) / vert_normal(i).norm();
+        //std::cout << vert_normal(i) << std::endl;
+    }
+    _mesh_back_vert_normal = vert_normal;
+
+    _mesh_back_vert_thickness.resize(_num_mesh_back_vertices);
+
+    for (int i = 0; i < _num_mesh_back_vertices; ++i) {
+        // Use mesh OBB tree to find cartilage thickness
+        //--------------------------------------------------
+
+        int tri;
+        SimTK::Vec3 intersection_point;
+        double depth = 0.0;
+
+        SimTK::Vec3 vert = _mesh_back.getVertexPosition(i);
+        
+
+        if (_obb.rayIntersectOBB(_mesh,
+            vert, SimTK::UnitVec3(_mesh_back_vert_normal(i)), tri, intersection_point, depth)) {
+
+            if (depth < min_thickness) {
+                depth = min_thickness;
+            }
+            else if (depth > max_thickness) {
+                depth = min_thickness;
+            }
+        }
+        else { //Normal from mesh missed mesh back
+            depth = min_thickness;
+        }
+        _mesh_back_vert_thickness(i) = depth;        
     }
 }
 

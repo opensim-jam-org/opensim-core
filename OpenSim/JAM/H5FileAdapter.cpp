@@ -469,6 +469,54 @@ void H5FileAdapter::writeDataSetSimTKMatrixVec3Columns(const SimTK::Matrix_<SimT
     }
 }
 
+void H5FileAdapter::writeDataSetSimTKMatrixVec3(const SimTK::Matrix_<SimTK::Vec3>& data_matrix, const std::string dataset_path) {
+    hsize_t dim_data[3];
+
+    int nx = data_matrix.nrow();
+    int ny = data_matrix.ncol();
+    int nz = 3;
+
+    dim_data[0] = data_matrix.nrow();
+    dim_data[1] = data_matrix.ncol();
+    dim_data[2] = 3;
+
+    H5::DataSpace dataspace(3, dim_data, dim_data);
+    H5::PredType datatype(H5::PredType::NATIVE_DOUBLE);
+    H5::DataSet dataset = _file.createDataSet(dataset_path, datatype, dataspace);
+
+    //Allocate space for data
+   /* double*** data = (double***)malloc(dim_data[0] * sizeof(double**));
+    data[0] = (double**)malloc(dim_data[1] * dim_data[0] * sizeof(double*));
+    
+    for (int i = 1; i < (int)dim_data[0]; i++) {
+        data[i] = data[0] + i * dim_data[1];
+    }
+
+    //Set Data Array
+    for (int r = 0; r < (int)dim_data[0]; ++r) {
+        for (int c = 0; c < 3; ++c) {
+            data[r][c] = data_vector(r)(c);
+        }
+    }*/
+
+    double* data;
+    data = (double*)malloc(nx * ny * nz * sizeof(*data));
+    for (int i = 0; i < nx; ++i) {
+        for (int j = 0; j < ny; ++j) {
+            for (int k = 0; k < nz; ++k) {
+                
+                data[i * ny * nz + j * nz + k] = data_matrix(i,j).get(k);
+            }
+        }
+    }
+
+    dataset.write(&data[0], datatype);
+
+    //Free dynamically allocated memory
+    //free(data[0]);
+    free(data);
+}
+
 void H5FileAdapter::writeTimeDataSet(const Array<double>& time) {
     if (_time_is_empty) {
 

@@ -81,6 +81,7 @@ void Smith2018ArticularContactForce::constructProperties()
     constructProperty_max_proximity(0.01);
     constructProperty_elastic_foundation_formulation("linear");
     constructProperty_use_lumped_contact_model(true);
+    constructProperty_use_fast_contact_detection(true);
 }
 
 void Smith2018ArticularContactForce::
@@ -199,6 +200,13 @@ extendAddToSystem(MultibodySystem& system) const
     this->_casting_triangle_forceCV = 
         addCacheVariable("casting_triangle_force",
         casting_mesh_def_vec3, Stage::Position);
+
+    this->_target_triangle_velocityCV =
+        addCacheVariable("target_triangle_velocity",
+            target_mesh_def_vec3, Stage::Position);
+    this->_casting_triangle_velocityCV =
+        addCacheVariable("casting_triangle_velocity",
+            casting_mesh_def_vec3, Stage::Position);
 
 
     //Lazy Evaluations (only computed getXX is called)
@@ -322,6 +330,32 @@ extendAddToSystem(MultibodySystem& system) const
     //Modeling Options
     //----------------
     addModelingOption("flip_meshes", 1);
+
+    if (!get_use_fast_contact_detection()) {
+
+
+        SimTK::ContactGeometry::TriangleMesh mesh_target(
+            getSocket<Smith2018ContactMesh>("target_mesh").
+            getConnectee().getPolygonalMesh());
+
+        SimTK::ContactGeometry::TriangleMesh mesh_casting(
+            getSocket<Smith2018ContactMesh>("casting_mesh").
+            getConnectee().getPolygonalMesh());
+
+        const SimTK::MobilizedBody& target_body = getSocket<Smith2018ContactMesh>("target_mesh").
+            getConnectee().getFrame().getMobilizedBody();
+
+        const SimTK::MobilizedBody& casting_body = getSocket<Smith2018ContactMesh>("casting_mesh").
+            getConnectee().getFrame().getMobilizedBody();
+        
+        SimTK::GeneralContactSubsystem& contacts = system.updContactSubsystem();
+
+        _simtkContactSetIndex = contacts.createContactSet();
+       
+        contacts.addBody(_simtkContactSetIndex, target_body, mesh_target, Transform());
+        contacts.addBody(_simtkContactSetIndex, casting_body, mesh_casting, Transform());
+
+    }
 }
 
 void Smith2018ArticularContactForce::computeMeshProximity(
@@ -357,6 +391,9 @@ void Smith2018ArticularContactForce::computeMeshProximity(
     triangle_proximity.resize(casting_mesh.getNumFaces());
     triangle_proximity = 0;
 
+    SimTK::Vector_<SimTK::Vec3> triangle_velocity(casting_mesh.getNumFaces());
+    triangle_velocity = SimTK::Vec3(0);
+
     std::vector<int>& target_tri = (cache_mesh_name == "target") ?
         this->updCacheVariableValue(
             state, this->_target_triangle_previous_contacting_triangleCV) :
@@ -370,7 +407,6 @@ void Smith2018ArticularContactForce::computeMeshProximity(
 
     //Collision Detection
     //-------------------
-
     //Loop through all triangles in casting mesh
     for (int i = 0; i < casting_mesh.getNumFaces(); ++i) {
         bool contact_detected = false;
@@ -403,7 +439,7 @@ void Smith2018ArticularContactForce::computeMeshProximity(
             }
 
             //neighboring triangles
-            std::set<int> neighborTris =
+            /*std::set<int> neighborTris =
                 target_mesh.getNeighborTris(target_tri[i]);
 
             for (int neighbor_tri : neighborTris) {
@@ -426,7 +462,7 @@ void Smith2018ArticularContactForce::computeMeshProximity(
                         break;
                     }
                 }
-            }
+            }*/
             if (contact_detected) {
                 continue;
             }
@@ -453,6 +489,7 @@ void Smith2018ArticularContactForce::computeMeshProximity(
         target_tri[i] = -1;
     }
 
+
     //Store Contact Info
     if (cache_mesh_name == "casting"){
         this->setCacheVariableValue(state, 
@@ -469,6 +506,8 @@ void Smith2018ArticularContactForce::computeMeshProximity(
             this->_casting_num_contacting_triangles_neighborCV, nNeighborTri);
         this->setCacheVariableValue(state, 
             this->_casting_num_contacting_triangles_differentCV, nDiffTri);
+        this->setCacheVariableValue(state,
+            this->_casting_triangle_velocityCV, triangle_velocity);
     }
     else {
         this->setCacheVariableValue(state, 
@@ -485,29 +524,238 @@ void Smith2018ArticularContactForce::computeMeshProximity(
             this->_target_num_contacting_triangles_neighborCV, nNeighborTri);
         this->setCacheVariableValue(state, 
             this->_target_num_contacting_triangles_differentCV, nDiffTri);
+        this->setCacheVariableValue(state,
+            this->_target_triangle_velocityCV, triangle_velocity);
     }
+}
+
+void Smith2018ArticularContactForce::computeMeshProximitySimbodyContact(
+    const SimTK::State& state, SimTK::Vector& triangle_proximity) const {
+
+    const PhysicalFrame& target_frame = getSocket<Smith2018ContactMesh>("target_mesh").getConnectee().getMeshFrame();
+    const PhysicalFrame& casting_frame = getSocket<Smith2018ContactMesh>("casting_mesh").getConnectee().getMeshFrame();
+
+    const SimTK::Vector_<SimTK::Vec3>& casting_centers = getSocket<Smith2018ContactMesh>("casting_mesh").getConnectee().getTriangleCenters();
+    const SimTK::Vector_<SimTK::Vec3>& target_centers = getSocket<Smith2018ContactMesh>("target_mesh").getConnectee().getTriangleCenters();
+
+    const SimTK::Vector_<SimTK::UnitVec3>& casting_normals = getSocket<Smith2018ContactMesh>("casting_mesh").getConnectee().getTriangleNormals();
+    const SimTK::Vector_<SimTK::UnitVec3>& target_normals = getSocket<Smith2018ContactMesh>("target_mesh").getConnectee().getTriangleNormals();
+
+    const Transform t1g = target_frame.getTransformInGround(state); // mesh to ground
+    const Transform t2g = casting_frame.getTransformInGround(state); // other object to ground
+    const Transform t12 = ~t2g * t1g; // mesh to other object
+    const Transform t21 = ~t1g * t2g; // mesh to other object
+
+    SimTK::Vector target_triangle_proximity(target_centers.size());
+    SimTK::Vector casting_triangle_proximity(casting_centers.size());
+    target_triangle_proximity = 0;
+    casting_triangle_proximity = 0;
+    std::vector<int> target_tri_targets(target_centers.size(), -1);
+    std::vector<int> casting_tri_targets(casting_centers.size(), -1);
+    int numCastingContactingTri = 0;
+    int numTargetContactingTri = 0;
+
+    //std::cout << "casting nTri: " << casting_centers.size() << " " << castingGeo.getNumFaces() << std::endl;
+    //std::cout << "target nTri: " << target_centers.size() << " " << targetGeo.getNumFaces() << std::endl;
+
+
+    SimTK::Vector_<SimTK::Vec3> target_triangle_velocity(target_centers.size(), SimTK::Vec3(0));
+    SimTK::Vector_<SimTK::Vec3> casting_triangle_velocity(casting_centers.size(), SimTK::Vec3(0));
+
+
+    const SimTK::Array_<SimTK::Contact>& contacts =
+        getModel().getMultibodySystem().getContactSubsystem().getContacts(state, _simtkContactSetIndex);
+
+    //std::cout << contacts.size() << " " << _simtkContactSetIndex  << std::endl;
+
+
+    if (contacts.size() > 1) {
+        log_error("Unexpected number of contacts.");
+    }
+    if(contacts.size() == 1) {
+
+        const TriangleMeshContact& tri_mesh_cnt =
+            static_cast<const TriangleMeshContact&>(contacts[0]);        
+
+        //ID contact surfaces
+        const SimTK::ContactGeometry::TriangleMesh& geo1 =
+            static_cast<const SimTK::ContactGeometry::TriangleMesh&>(getModel().getMultibodySystem().getContactSubsystem().getBodyGeometry(
+                _simtkContactSetIndex, tri_mesh_cnt.getSurface1()));
+
+        const SimTK::ContactGeometry::TriangleMesh& geo2 =
+            static_cast<const SimTK::ContactGeometry::TriangleMesh&>(getModel().getMultibodySystem().getContactSubsystem().getBodyGeometry(
+                _simtkContactSetIndex, tri_mesh_cnt.getSurface2()));
+
+        std::set<int> casting_cnt_faces;
+        std::set<int> target_cnt_faces;
+        bool flipped;
+
+        if (geo1.getNumFaces() == casting_centers.size()) {
+            casting_cnt_faces = tri_mesh_cnt.getSurface1Faces();
+            target_cnt_faces = tri_mesh_cnt.getSurface2Faces();
+            flipped = true;
+        }
+        else {
+            casting_cnt_faces = tri_mesh_cnt.getSurface2Faces();
+            target_cnt_faces = tri_mesh_cnt.getSurface1Faces();
+            flipped = false;
+        }
+
+        //std::set<int> casting_cnt_faces = tri_mesh_cnt.getSurface2Faces();
+        numCastingContactingTri = (int)casting_cnt_faces.size();
+
+        //std::set<int> target_cnt_faces = tri_mesh_cnt.getSurface1Faces();
+        numTargetContactingTri = (int)target_cnt_faces.size();
+
+        const SimTK::ContactGeometry::TriangleMesh& castingGeo = (flipped) ? 
+            static_cast<const SimTK::ContactGeometry::TriangleMesh&>(getModel().getMultibodySystem().getContactSubsystem().getBodyGeometry(
+                _simtkContactSetIndex, tri_mesh_cnt.getSurface1())) : 
+            static_cast<const SimTK::ContactGeometry::TriangleMesh&>(getModel().getMultibodySystem().getContactSubsystem().getBodyGeometry(
+                _simtkContactSetIndex, tri_mesh_cnt.getSurface2()));
+
+        const SimTK::ContactGeometry::TriangleMesh& targetGeo = (flipped) ?
+            static_cast<const SimTK::ContactGeometry::TriangleMesh&>(getModel().getMultibodySystem().getContactSubsystem().getBodyGeometry(
+                _simtkContactSetIndex, tri_mesh_cnt.getSurface2())) :
+            static_cast<const SimTK::ContactGeometry::TriangleMesh&>(getModel().getMultibodySystem().getContactSubsystem().getBodyGeometry(
+                _simtkContactSetIndex, tri_mesh_cnt.getSurface1()));
+
+        /*const SimTK::ContactGeometry::TriangleMesh& castingGeo =
+            static_cast<const SimTK::ContactGeometry::TriangleMesh&>(getModel().getMultibodySystem().getContactSubsystem().getBodyGeometry(
+                _simtkContactSetIndex, tri_mesh_cnt.getSurface2()));
+
+        const SimTK::ContactGeometry::TriangleMesh& targetGeo =
+            static_cast<const SimTK::ContactGeometry::TriangleMesh&>(getModel().getMultibodySystem().getContactSubsystem().getBodyGeometry(
+                _simtkContactSetIndex, tri_mesh_cnt.getSurface1()));
+                */
+
+        std::cout << targetGeo.getNumFaces() << " " << castingGeo.getNumFaces() << std::endl;
+        std::cout << target_cnt_faces.size() << " " << casting_cnt_faces.size() << std::endl;
+        //std::cout << *target_cnt_faces.begin() << " " << *casting_cnt_faces.begin() << std::endl;
+
+        for (int face : casting_cnt_faces) {
+            if (face < 0 || face > casting_centers.size()) {
+                //std::cout << "casting: " << face << std::endl;
+            }
+            UnitVec3 normal;
+            bool inside = false;
+            int cnt_face = -1;
+            Vec2 uv(0);
+            Vec3 face_center = t21 * casting_centers(face);
+            Vec3 nearestPoint = targetGeo.findNearestPoint(face_center, inside, cnt_face, uv);
+
+            if (cnt_face > targetGeo.getNumFaces()) {
+                log_error("cnt_face index {} greater than getNumFaces {} in "
+                    "target mesh", cnt_face, targetGeo.getNumFaces());
+            }
+
+
+            /*Real distance;
+            SimTK::Vec3 cnorm = t21 * casting_normals(face);
+            UnitVec3 cccnormal(cnorm);
+            Vec3 origin = t21 * casting_centers(face);
+            inside = targetGeo.intersectsRay(origin, -cccnormal, distance, normal);
+            */
+            if (!inside) { continue; }
+            casting_tri_targets[face] = cnt_face;
+
+            // Find how much the spring is displaced.
+
+            nearestPoint = t1g * nearestPoint;
+            const Vec3 springPosInGround = t2g * casting_centers(face);
+            const Vec3 displacement = nearestPoint - springPosInGround;
+            const Real distance = displacement.norm();
+            if (distance == 0.0)
+                continue;
+
+
+            const Vec3 forceDir = displacement / distance;
+
+            // Calculate the relative velocity of the two bodies at the contact point.
+            const Vec3 station1 = getModel().getGround().findStationLocationInAnotherFrame(state, nearestPoint, target_frame);
+            const Vec3 station2 = getModel().getGround().findStationLocationInAnotherFrame(state, nearestPoint, casting_frame);
+            const Vec3 v1 = target_frame.findStationVelocityInGround(state, station1);
+            const Vec3 v2 = casting_frame.findStationVelocityInGround(state, station2);
+            const Vec3 v = v2 - v1;
+            const Real vnormal = dot(v, forceDir);
+            const Vec3 vtangent = v - vnormal * forceDir;
+            //if (v.norm() > 0) {
+                //std::cout << face << " " << v1 << " " << v2 << std::endl;
+            //}
+            casting_triangle_proximity(face) = distance;
+            casting_triangle_velocity(face) = v;
+        }
+
+        for (int face : target_cnt_faces) {
+
+            if (face <0 || face > target_centers.size()) {
+                //std::cout << " target: " << face << " " << target_centers.size() << std::endl;
+            }
+
+            UnitVec3 normal;
+            bool inside = false;
+            int cnt_face = -1;
+            Vec2 uv(0);
+            Vec3 face_center = t12 * target_centers(face);
+            //std::cout << face << " " << target_centers.size() << " " << target_centers(face) << std::endl;
+            Vec3 nearestPoint = castingGeo.findNearestPoint(face_center, inside, cnt_face, uv);
+
+            if (cnt_face > castingGeo.getNumFaces()) {
+                log_error("cnt_face index {} greater than getNumFaces {} in "
+                    "casting mesh", cnt_face, castingGeo.getNumFaces());
+            }
+
+            if (!inside) { continue; }
+            target_tri_targets[face] = cnt_face;
+
+            // Find how much the spring is displaced.
+
+            nearestPoint = t2g * nearestPoint;
+            const Vec3 springPosInGround = t1g * target_centers(face);
+            const Vec3 displacement = nearestPoint - springPosInGround;
+            const Real distance = displacement.norm();
+            if (distance == 0.0)
+                continue;
+
+            const Vec3 forceDir = displacement / distance;
+
+            // Calculate the relative velocity of the two bodies at the contact point.
+            const Vec3 station1 = getModel().getGround().findStationLocationInAnotherFrame(state, nearestPoint, target_frame);
+            const Vec3 station2 = getModel().getGround().findStationLocationInAnotherFrame(state, nearestPoint, casting_frame);
+            const Vec3 v1 = target_frame.findStationVelocityInGround(state, station1);
+            const Vec3 v2 = casting_frame.findStationVelocityInGround(state, station2);
+            const Vec3 v = v1 - v2;
+            const Real vnormal = dot(v, forceDir);
+            const Vec3 vtangent = v - vnormal * forceDir;
+
+            target_triangle_proximity(face) = distance;
+            target_triangle_velocity(face) = v;
+        }
+    }
+    
+    this->setCacheVariableValue(state,
+        this->_casting_triangle_proximityCV, casting_triangle_proximity);
+    this->setCacheVariableValue(state,
+        this->_casting_triangle_previous_contacting_triangleCV, casting_tri_targets);
+    this->setCacheVariableValue(state,
+        this->_casting_num_contacting_trianglesCV, numCastingContactingTri);
+    this->setCacheVariableValue(state,
+        this->_casting_triangle_velocityCV, casting_triangle_velocity);
+    this->setCacheVariableValue(state,
+        this->_target_triangle_proximityCV, target_triangle_proximity);
+    this->setCacheVariableValue(state,
+        this->_target_triangle_previous_contacting_triangleCV, target_tri_targets);
+    this->setCacheVariableValue(state,
+        this->_target_num_contacting_trianglesCV, numTargetContactingTri);
+    this->setCacheVariableValue(state,
+        this->_target_triangle_velocityCV, target_triangle_velocity);
+    
 }
 
 void Smith2018ArticularContactForce::computeMeshDynamics(
     const State& state, const Smith2018ContactMesh& casting_mesh,
     const Smith2018ContactMesh& target_mesh) const
 {
-    SimTK::Vector_<SimTK::Vec3> triangle_force;
-    SimTK::Vector triangle_pressure;
-    SimTK::Vector triangle_energy;
 
-    computeMeshDynamics(
-        state, casting_mesh, target_mesh,
-        triangle_force, triangle_pressure, triangle_energy);
-}
-
-void Smith2018ArticularContactForce::computeMeshDynamics(
-    const State& state, const Smith2018ContactMesh& casting_mesh,
-    const Smith2018ContactMesh& target_mesh,
-    SimTK::Vector_<SimTK::Vec3>& triangle_force,
-    SimTK::Vector& triangle_pressure,
-    SimTK::Vector& triangle_energy) const
-{
     std::string casting_path = getConnectee<Smith2018ContactMesh>
         ("casting_mesh").getAbsolutePathString();
 
@@ -519,13 +767,13 @@ void Smith2018ArticularContactForce::computeMeshDynamics(
     else {
         flipped_meshes = true;
     }
-
+    
     const Vector& triangle_proximity = (flipped_meshes) ?
         this->getCacheVariableValue(state, 
             this->_target_triangle_proximityCV) :
         this->getCacheVariableValue(state, 
             this->_casting_triangle_proximityCV);
-
+    
     const std::vector<int>& target_tri = (flipped_meshes) ?
         this->getCacheVariableValue(state,
             this->_target_triangle_previous_contacting_triangleCV) :
@@ -534,14 +782,14 @@ void Smith2018ArticularContactForce::computeMeshDynamics(
 
     const Vector& triangle_area = casting_mesh.getTriangleAreas();
 
+    SimTK::Vector_<SimTK::Vec3> triangle_force;
+    SimTK::Vector triangle_pressure;
+    SimTK::Vector triangle_energy;
+
     triangle_pressure.resize(casting_mesh.getNumFaces());
     triangle_pressure = 0;
     triangle_energy.resize(casting_mesh.getNumFaces());
     triangle_energy = 0;
-
-    double hT, hC; //thickness
-    double ET, EC; //elastic modulus
-    double vT, vC; //poissons ratio
 
     //Compute Tri Pressure and Potential Energy
     //-----------------------------------------
@@ -553,13 +801,20 @@ void Smith2018ArticularContactForce::computeMeshDynamics(
         }
 
         //Material Properties
-        hT = target_mesh.getTriangleThickness(target_tri[i]);
-        ET = target_mesh.getTriangleElasticModulus(target_tri[i]);
-        vT = target_mesh.getTrianglePoissonsRatio(target_tri[i]);
-        
-        hC = casting_mesh.getTriangleThickness(i);
-        EC = casting_mesh.getTriangleElasticModulus(i);
-        vC = casting_mesh.getTrianglePoissonsRatio(i);
+        if (target_tri[i] == -1) {
+            std::cout << i << std::endl;
+        }
+        else if(target_tri[i] > target_mesh.getNumFaces()) {
+            std::cout << "Warn " << i << " " << target_tri[i] << std::endl;
+        }
+
+        double hT = target_mesh.getTriangleThickness(target_tri[i]);
+        double ET = target_mesh.getTriangleElasticModulus(target_tri[i]);
+        double vT = target_mesh.getTrianglePoissonsRatio(target_tri[i]);
+   
+        double hC = casting_mesh.getTriangleThickness(i);
+        double EC = casting_mesh.getTriangleElasticModulus(i);
+        double vC = casting_mesh.getTrianglePoissonsRatio(i);
 
         //Compute pressure & energy using the lumped contact model
         if (get_use_lumped_contact_model()) {
@@ -656,7 +911,7 @@ void Smith2018ArticularContactForce::computeMeshDynamics(
         this->setCacheVariableValue(state, 
             this->_casting_triangle_forceCV, triangle_force);
     }
-
+    
     return;
 }
 
@@ -735,26 +990,61 @@ void Smith2018ArticularContactForce::computeForce(const State& state,
     const Smith2018ContactMesh& target_mesh =
         getConnectee<Smith2018ContactMesh>("target_mesh");
 
-    //Proximity
+    // Proximity
     SimTK::Vector casting_triangle_proximity;
-    if (!this->isCacheVariableValid(state, this->_casting_triangle_proximityCV)) {
+
+    if (this->isCacheVariableValid(state, this->_casting_triangle_proximityCV)) {
+        casting_triangle_proximity =
+            this->getCacheVariableValue(state, this->_casting_triangle_proximityCV);
+    }
+    else if (get_use_fast_contact_detection()) {         
         computeMeshProximity(state, casting_mesh, target_mesh,
             "casting", casting_triangle_proximity);
     }
     else {
-        casting_triangle_proximity = 
-            this->getCacheVariableValue(state, this->_casting_triangle_proximityCV);
+        computeMeshProximitySimbodyContact(state, casting_triangle_proximity);
     }
 
-    SimTK::Vector casting_triangle_pressure;
-    SimTK::Vector casting_triangle_energy;
+    // Velocity
+    /*SimTK::Vector casting_triangle_velocity;
+
+    if (this->isCacheVariableValid(state, this->_casting_triangle_velocityCV)) {
+        casting_triangle_velocity =
+            this->getCacheVariableValue(state, this->_casting_triangle_velocityCV);
+    }
+    else if (get_use_fast_contact_detection()) {
+        computeMeshVelocity(state, casting_mesh, target_mesh,
+            "casting", casting_triangle_proximity);
+    }
+    else {
+        computeMeshVelocitySimbodyContact(state, casting_triangle_proximity)
+    }*/
+
     SimTK::Vector_<Vec3> casting_triangle_force;
 
     //Pressure
-    computeMeshDynamics(state, casting_mesh, target_mesh, casting_triangle_force,
-        casting_triangle_pressure, casting_triangle_energy);
+    if (this->isCacheVariableValid(state, this->_casting_triangle_forceCV)) {
+        casting_triangle_force =
+            this->getCacheVariableValue(state, this->_casting_triangle_forceCV);
+    }
+    if (get_use_fast_contact_detection()) {
+
+        computeMeshDynamics(state, casting_mesh, target_mesh);
+
+        casting_triangle_force =
+            this->getCacheVariableValue(state, this->_casting_triangle_forceCV);
+    }
+    else {
+        computeMeshDynamics(state, casting_mesh, target_mesh);
+            
+        computeMeshDynamics(state, target_mesh, casting_mesh);
+        casting_triangle_force =
+            this->getCacheVariableValue(state, this->_casting_triangle_forceCV);
+    }
 
     //Force
+     
+
     const PhysicalFrame& target_frame = target_mesh.getMeshFrame();
     const PhysicalFrame& casting_frame = casting_mesh.getMeshFrame();
 
@@ -778,9 +1068,9 @@ void Smith2018ArticularContactForce::computeForce(const State& state,
         applyForceToPoint(state, target_frame, triangle_center_target,
             target_force_ground, bodyForces);
     }
-
+    
     //Compute Proximity and Pressure for Target mesh (optional for analysis)
-    if (getModelingOption(state, "flip_meshes")) {
+    if ( get_use_fast_contact_detection() && getModelingOption(state, "flip_meshes")) {
         SimTK::Vector target_triangle_proximity;
 
         //target proximity
@@ -794,24 +1084,13 @@ void Smith2018ArticularContactForce::computeForce(const State& state,
                 this->getCacheVariableValue(state,
                     this->_target_triangle_proximityCV);
         }
-    
+        computeMeshProximity(state, target_mesh, casting_mesh,
+            "target", target_triangle_proximity);
         
         //target pressure
-        SimTK::Vector target_triangle_pressure;
-        SimTK::Vector_<SimTK::Vec3> target_triangle_force;
-        SimTK::Vector target_triangle_energy;
 
-        computeMeshDynamics(state, target_mesh, casting_mesh,
-            target_triangle_force, target_triangle_pressure, target_triangle_energy);
-            
-        /*setCacheVariableValue(state,
-            "target.triangle.proximity", target_triangle_proximity);
-
-        setCacheVariableValue(state,
-            "target.triangle.pressure", target_triangle_pressure);
-
-        setCacheVariableValue(state,
-            "target.triangle.potential_energy", target_triangle_energy);*/
+        computeMeshDynamics(state, target_mesh, casting_mesh);// ,
+            //target_triangle_force, target_triangle_pressure, target_triangle_energy);
     }
 }
 

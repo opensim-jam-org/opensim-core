@@ -78,6 +78,7 @@ void testTranslationalDampingEffect(Model& osimModel, Coordinate& sliderCoord,
         double start_h, Component& componentWithDamping);
 void testBlankevoort1991Ligament();
 void testSmith2018ArticularContactForce();
+void testSmith2018ContactDetection();
 
 int main() {
     SimTK::Array_<std::string> failures;
@@ -176,11 +177,15 @@ int main() {
     } catch (const std::exception& e) {
         cout << e.what() << endl;
         failures.push_back("testBlankevoort1991Ligament");
-    }*/
-
+    }
+    */
     try {
         testSmith2018ArticularContactForce();
     }
+    /*
+    try {
+        testSmith2018ContactDetection();
+    }*/
     catch (const std::exception& e) {
         cout << e.what() << endl;
         failures.push_back("testSmith2018ArticularContactForce");
@@ -2486,6 +2491,11 @@ void testSmith2018ArticularContactForce() {
 
     Smith2018ContactMesh* plane_mesh = new Smith2018ContactMesh("plane", "x_z_plane.stl", *plane);
     Smith2018ContactMesh* indenter_mesh = new Smith2018ContactMesh("indenter", "half_sphere_10cm_radius.stl", *indenter);
+    
+    //indenter_mesh->set_mesh_back_file("x_z_disk_10cm_radius.stl");
+    indenter_mesh->set_mesh_back_file("half_sphere_10cm_radius.stl");
+    indenter_mesh->set_use_variable_thickness(true);
+    indenter_mesh->set_max_thickness(0.5);
 
     double E_indenter = 1e6;
     double v_indenter = 0.46;
@@ -2526,6 +2536,24 @@ void testSmith2018ArticularContactForce() {
 
     const ModelVisualizer& viz = model.getVisualizer();
     viz.show(state);
+
+    // Verify Variable Thickness
+    double sphere_radius = 0.1;
+    double thickness = 0;
+    double max_thickness = 0;
+    for (int i = 0; i < indenter_mesh->getNumMeshBackVertices(); ++i) {
+        thickness = indenter_mesh->getMeshBackVertexThickness(i);
+        //std::cout << thickness << std::endl;
+        if (thickness > max_thickness) {
+            max_thickness = thickness;
+        }
+    }
+    //std::cout << max_thickness << " " << sphere_radius << std::endl;
+/*    ASSERT_EQUAL(sphere_radius, max_thickness, 1e-3, __FILE__,
+        __LINE__,
+        "Expected the maximum thickness to be equal to the radius.");
+        */
+   //indenter_mesh->set_use_variable_thickness(false);
 
     // Verify Contact Area
     double expected_casting_area = 2 * SimTK::Pi * SimTK::square(radius);
@@ -2573,7 +2601,7 @@ void testSmith2018ArticularContactForce() {
     //Test 2
     //===================================================================
     indenter_mesh->set_mesh_file("x_z_disk_10cm_radius.stl");    
-
+    //indenter_mesh->set_mesh_file("half_sphere_10cm_radius.stl");
     model.finalizeFromProperties();
 
     state = model.initSystem();
@@ -3113,4 +3141,156 @@ void testSmith2018ArticularContactForce() {
     
     ASSERT(ray_hit, __FILE__, __LINE__,
         "Expected the ray to intersect the half sphere. ");
+}
+
+void testSmith2018ContactDetection() {
+    Model model = Model("C:\\Users\\csmith\\research\\dod1\\simulation\\DoD1_003\\model\\scaled_model_with_contact.osim");
+
+    double gravity_acc = 9.8067;
+    model.setGravity(SimTK::Vec3(0, -gravity_acc, 0));
+
+    double mass = 1.0;
+    double radius = 0.1;
+
+    OpenSim::Body* sphere1 = new OpenSim::Body("sphere1", 0.0, SimTK::Vec3(0),
+        mass * SimTK::Inertia::brick(0.05, 0.05, 0.05));
+
+    OpenSim::Body* sphere2 = new OpenSim::Body("sphere2", mass, SimTK::Vec3(0),
+        mass * SimTK::Inertia::brick(0.05, 0.05, 0.05));
+
+    //indenter->attachGeometry(new Mesh("half_sphere_10cm_radius.stl"));
+
+    model.addBody(sphere1);
+    model.addBody(sphere2);
+
+    SpatialTransform indenter_transform = SpatialTransform();
+    indenter_transform.upd_rotation1().set_coordinates(0, "plane_indenter_rx");
+    indenter_transform.upd_rotation1().set_axis(SimTK::Vec3(1, 0, 0));
+    indenter_transform.upd_rotation1().set_function(LinearFunction());
+
+    indenter_transform.upd_rotation2().set_coordinates(0, "plane_indenter_ry");
+    indenter_transform.upd_rotation2().set_axis(SimTK::Vec3(0, 1, 0));
+    indenter_transform.upd_rotation2().set_function(LinearFunction());
+
+    indenter_transform.upd_rotation3().set_coordinates(0, "plane_indenter_rz");
+    indenter_transform.upd_rotation3().set_axis(SimTK::Vec3(0, 0, 1));
+    indenter_transform.upd_rotation3().set_function(LinearFunction());
+
+    indenter_transform.upd_translation1().set_coordinates(0, "plane_indenter_tx");
+    indenter_transform.upd_translation1().set_axis(SimTK::Vec3(1, 0, 0));
+    indenter_transform.upd_translation1().set_function(LinearFunction());
+
+    indenter_transform.upd_translation2().set_coordinates(0, "plane_indenter_ty");
+    indenter_transform.upd_translation2().set_axis(SimTK::Vec3(0, 1, 0));
+    indenter_transform.upd_translation2().set_function(LinearFunction());
+
+    indenter_transform.upd_translation3().set_coordinates(0, "plane_indenter_tz");
+    indenter_transform.upd_translation3().set_axis(SimTK::Vec3(0, 0, 1));
+    indenter_transform.upd_translation3().set_function(LinearFunction());
+
+    WeldJoint* ground_sphere1 = new WeldJoint("ground_sphere1", model.getGround(), *sphere1);
+    CustomJoint* sphere1_sphere2 = new CustomJoint("sphere1_sphere2", *sphere1, *sphere2, indenter_transform);
+
+    model.addJoint(ground_sphere1);
+    model.addJoint(sphere1_sphere2);
+
+   // Smith2018ContactMesh* sphere1_mesh = new Smith2018ContactMesh("sphere1", "sphere_10cm_radius.stl", *sphere1);
+   // Smith2018ContactMesh* sphere2_mesh = new Smith2018ContactMesh("sphere2", "sphere_10cm_radius.stl", *sphere2);
+
+    std::string fem_file = "C:\\Users\\csmith\\research\\hip_microinstability\\opensim\\1\\Geometry\\femur_cart.stl";
+    std::string pel_file = "C:\\Users\\csmith\\research\\hip_microinstability\\opensim\\1\\Geometry\\pelvis_cart.stl";
+
+    Smith2018ContactMesh* sphere1_mesh = new Smith2018ContactMesh("sphere1", fem_file, *sphere1);
+    Smith2018ContactMesh* sphere2_mesh = new Smith2018ContactMesh("sphere2", pel_file, *sphere2);
+
+    double E_indenter = 1e6;
+    double v_indenter = 0.46;
+    double E_plane = 1e6;
+    double v_plane = 0.46;
+
+    sphere1_mesh->set_elastic_modulus(E_plane);
+    sphere1_mesh->set_poissons_ratio(v_plane);
+    sphere1_mesh->set_thickness(0.2);
+
+    sphere2_mesh->set_elastic_modulus(E_indenter);
+    sphere2_mesh->set_poissons_ratio(v_indenter);
+    sphere2_mesh->set_thickness(0.1);
+
+    model.addContactGeometry(sphere1_mesh);
+    model.addContactGeometry(sphere2_mesh);
+
+    Smith2018ArticularContactForce* contact = new Smith2018ArticularContactForce("contact", *sphere1_mesh, *sphere2_mesh);
+    contact->set_max_proximity(0.2);
+    contact->set_elastic_foundation_formulation("linear");
+    contact->set_use_lumped_contact_model(true);
+    contact->set_use_fast_contact_detection(false);
+    model.addForce(contact);
+
+    model.setUseVisualizer(true);
+    SimTK::State& state = model.initSystem();
+    contact->setModelingOption(state, "flip_meshes", 1);
+
+    model.print("contact_dectection_test.osim");
+
+    Coordinate& tx = model.updCoordinateSet().get("plane_indenter_tx");
+    Coordinate& ty = model.updCoordinateSet().get("plane_indenter_ty");
+    Coordinate& tz = model.updCoordinateSet().get("plane_indenter_tz");
+    Coordinate& rx = model.updCoordinateSet().get("plane_indenter_rx");
+    Coordinate& ry = model.updCoordinateSet().get("plane_indenter_ry");
+    Coordinate& rz = model.updCoordinateSet().get("plane_indenter_rz");
+
+    model.realizeReport(state);
+
+    const ModelVisualizer& viz = model.getVisualizer();
+    viz.show(state);
+    // Verify Contact Area
+   /* double expected_casting_area = 2 * SimTK::Pi * SimTK::square(radius);
+    double reported_casting_area = contact->getOutputValue<double>(
+        state, "casting_total_contact_area");
+
+    ASSERT_EQUAL(expected_casting_area, reported_casting_area, 1e-3,
+        __FILE__, __LINE__,
+        "Expected the contact area of the half sphere to be equal to the "
+        "analytical formula.");
+
+    double expected_target_area = SimTK::Pi * SimTK::square(radius);
+    double reported_target_area =
+        contact->getOutputValue<double>(state, "target_total_contact_area");
+
+    ASSERT_EQUAL(expected_target_area, reported_target_area, 1e-3, __FILE__,
+        __LINE__,
+        "Expected the contact area of the half sphere to be equal to the "
+        "analytical formula.");
+        */
+    //Move half sphere to half depth
+    /*double depth = 0.05;
+    ty.setValue(state, depth);
+    model.realizeReport(state);
+    viz.show(state);*/
+
+    for (double d = 0; d < 0.01; d += 0.001) {
+        std::cout << d << std::endl;
+        tz.setValue(state, d);
+        model.realizeReport(state);
+        viz.show(state);
+    }
+
+    // Max Proximity
+   /* double reported_casting_max_prox = contact->getOutputValue<double>(
+        state, "casting_total_max_proximity");
+
+    double reported_target_max_prox = contact->getOutputValue<double>(
+        state, "target_total_max_proximity");
+
+    double expected_max_prox = radius / 2;
+
+    ASSERT_EQUAL(expected_max_prox, reported_casting_max_prox, 1e-3, __FILE__,
+        __LINE__,
+        "Expected the maximum casting proximity "
+        "to be equal to the half sphere radius.");
+
+    ASSERT_EQUAL(expected_max_prox, reported_target_max_prox, 1e-3, __FILE__,
+        __LINE__,
+        "Expected the maximum target proximity "
+        "to be equal to the half sphere radius.");*/
 }

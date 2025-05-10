@@ -69,6 +69,12 @@ namespace OpenSim {
            _faceData.push_back(aFaceData);
        };
 
+       void appendFaceVec3(std::string aFaceVec3Name, const SimTK::Vector_<SimTK::Vec3>& aFaceVec3)
+       {
+           _faceVec3Names.push_back(aFaceVec3Name);
+           _faceVec3.push_back(aFaceVec3);
+       };
+
        void appendPointData(std::string aPointDataNames, SimTK::Vector aPointData)
        {
            _pointDataNames.push_back(aPointDataNames);
@@ -111,6 +117,9 @@ namespace OpenSim {
     private:
         std::vector<std::string> _faceDataNames;
         std::vector<SimTK::Vector>_faceData;
+
+        std::vector<std::string> _faceVec3Names;
+        std::vector<SimTK::Vector_<SimTK::Vec3>> _faceVec3;
 
         std::vector<std::string> _pointDataNames;
         std::vector<SimTK::Vector> _pointData;

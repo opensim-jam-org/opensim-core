@@ -191,8 +191,9 @@ class OSIMSIMULATION_API Smith2018ContactMesh : public ContactGeometry {
 
     int getNumFaces() const { return _num_faces; }
     int getNumTriangles() const { return _num_faces; }
-
     int getNumVertices() const { return _num_vertices; }
+    int getNumMeshBackTriangles() const { return _num_mesh_back_faces; }
+    int getNumMeshBackVertices() const { return _num_mesh_back_vertices; }
 
     const std::vector<std::vector<int>>&  getTriangleConnectivity() const {
         return _faces;
@@ -207,14 +208,46 @@ class OSIMSIMULATION_API Smith2018ContactMesh : public ContactGeometry {
     }
 
     const double& getTriangleThickness(int i) const {
+        if (i > getNumTriangles()) {
+            log_error("getTriangleThickness of index {} larger than mesh " 
+                "getNumTriangles: {}.", i, getNumTriangles());
+        }
+        if (i < 0) {
+            log_error("getTriangleThickness {} less than zero.", i);
+        }
         return _tri_thickness(i);
     }
 
+    const double& getMeshBackVertexThickness(int i) const {
+        if (i > _num_mesh_back_vertices) {
+            log_error("getMeshBackVertexThickness of index {} larger than mesh_back "
+                "number of vertices: {}.", i, _num_mesh_back_vertices);
+        }
+        if (i < 0) {
+            log_error("getMeshBackVertexThickness {} vertex index less than zero.", i);
+        }
+        return _mesh_back_vert_thickness(i);
+    }
+
     const double& getTriangleElasticModulus(int i) const {
+        if (i > getNumTriangles()) {
+            log_error("TriangleElasticModulus of index {} larger than mesh "
+                "getNumTriangles: {}", i, getNumTriangles());
+        }
+        if (i < 0) {
+            log_error("getTriangleElasticModulus {} less than zero.", i);
+        }
         return _tri_elastic_modulus(i);
     }
 
     const double& getTrianglePoissonsRatio(int i) const {
+        if (i > getNumTriangles()) {
+            log_error("getTrianglePoissonsRatio of index {} larger than mesh "
+                "getNumTriangles: {}.", i, getNumTriangles());
+        }
+        if (i < 0) {
+            log_error("getTrianglePoissonsRatio {} less than zero.", i);
+        }
         return _tri_poissons_ratio(i);
     }
 
@@ -226,6 +259,10 @@ class OSIMSIMULATION_API Smith2018ContactMesh : public ContactGeometry {
 
     const SimTK::Vector_<SimTK::UnitVec3>& getTriangleNormals() const {
         return _tri_normal;
+    }
+
+    const SimTK::Vector_<SimTK::Vec3>& getMeshBackVertexNormals() const {
+        return _mesh_back_vert_normal;
     }
 
     const SimTK::Matrix_<SimTK::Vec3>& getFaceVertexLocations() const {
@@ -317,16 +354,20 @@ private:
     std::vector<std::set<int>> _tri_neighbors;
     int _num_vertices;
     int _num_faces;
+    int _num_mesh_back_vertices;
+    int _num_mesh_back_faces;
     std::vector<std::vector<int>> _faces;
     SimTK::Vector_<SimTK::Vec3> _vertex_locations;
     SimTK::Matrix_<SimTK::Vec3> _face_vertex_locations;
     SimTK::Vector _tri_thickness;
     SimTK::Vector _tri_elastic_modulus;
     SimTK::Vector _tri_poissons_ratio;
+    SimTK::Vector _mesh_back_vert_thickness;
     bool _init_mesh_from_file;
     bool _mesh_is_cached;
     std::string _cached_mesh_file;
     
+    SimTK::Vector_<SimTK::Vec3> _mesh_back_vert_normal;
     
     
     int _ray_intersect_tri;

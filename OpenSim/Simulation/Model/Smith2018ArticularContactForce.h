@@ -310,7 +310,16 @@ public:
     OpenSim_DECLARE_PROPERTY(use_lumped_contact_model, bool,
         "Combine the thickness and the average material properties between "
         "the Smith2018ContactMeshes for both meshes and use Bei & Fregly 2003 "
-        "lumped parameter Elastic Foundation model.")
+        "lumped parameter Elastic Foundation model. "
+        "The Default value is true. ")
+
+    OpenSim_DECLARE_PROPERTY(use_fast_contact_detection, bool,
+        "Fast contact detection uses the algorithm described in Smith, "
+        "CMBBE I&V, 2018, and can used open meshes. For complex "
+        "articular geometeries the fast detection may result in incorrect "
+        "contact. If false, the Simbody contact detection is used, which "
+        "is slower and requires water tight (closed) meshes, but is more "
+        "robust. The Default value is true.")
 
     //=========================================================================
     // Connectors
@@ -348,6 +357,18 @@ public:
         getTargetTrianglePotentialEnergy, SimTK::Stage::Dynamics)
     OpenSim_DECLARE_OUTPUT(casting_triangle_potential_energy, SimTK::Vector,
         getCastingTrianglePotentialEnergy, SimTK::Stage::Dynamics)
+
+    // tri force
+    OpenSim_DECLARE_OUTPUT(target_triangle_force, SimTK::Vector_<SimTK::Vec3>,
+        getTargetTriangleForce, SimTK::Stage::Dynamics)
+    OpenSim_DECLARE_OUTPUT(casting_triangle_force, SimTK::Vector_<SimTK::Vec3>,
+        getCastingTriangleForce, SimTK::Stage::Dynamics)
+
+    // tri velocity
+    OpenSim_DECLARE_OUTPUT(target_triangle_velocity, SimTK::Vector_<SimTK::Vec3>,
+        getTargetTriangleVelocity, SimTK::Stage::Position)
+    OpenSim_DECLARE_OUTPUT(casting_triangle_velocity, SimTK::Vector_<SimTK::Vec3>,
+        getCastingTriangleVelocity, SimTK::Stage::Position)
 
     // contact area
     OpenSim_DECLARE_OUTPUT(target_total_contact_area, double,
@@ -512,6 +533,26 @@ public:
         const SimTK::State& state) const {
         return this->getCacheVariableValue
             (state, this->_casting_triangle_potential_energyCV);
+    }
+
+    //tri force
+    const SimTK::Vector_<SimTK::Vec3>& getTargetTriangleForce(
+        const SimTK::State& state) const { return 
+        this->getCacheVariableValue(state, this->_target_triangle_forceCV);
+    }
+    const SimTK::Vector_<SimTK::Vec3>& getCastingTriangleForce(
+        const SimTK::State& state) const { return 
+        this->getCacheVariableValue(state, this->_casting_triangle_forceCV);
+    }
+
+    //tri velocity
+    SimTK::Vector_<SimTK::Vec3> getTargetTriangleVelocity(
+        const SimTK::State& state) const { return
+        this->getCacheVariableValue(state, this->_target_triangle_velocityCV);
+    }
+    SimTK::Vector_<SimTK::Vec3> getCastingTriangleVelocity(
+        const SimTK::State& state) const { return 
+        this->getCacheVariableValue(state, this->_casting_triangle_velocityCV);
     }
 
     //Lazy computed outputs
@@ -939,15 +980,18 @@ protected:
         const std::string& cache_mesh_name,
         SimTK::Vector& triangle_proximity) const;
 
+    void computeMeshProximitySimbodyContact(
+        const  SimTK::State& state, SimTK::Vector& triangle_proximity) const;
+
     void computeMeshDynamics(const SimTK::State& state,
         const Smith2018ContactMesh& casting_mesh,
         const Smith2018ContactMesh& target_mesh) const;
 
-    void computeMeshDynamics(const SimTK::State& state,
+    /*void computeMeshDynamics(const SimTK::State& state,
         const Smith2018ContactMesh& casting_mesh,
         const Smith2018ContactMesh& target_mesh,
         SimTK::Vector_<SimTK::Vec3>& triangle_force,
-        SimTK::Vector& triangle_pressure,SimTK::Vector& triangle_energy) const;
+        SimTK::Vector& triangle_pressure,SimTK::Vector& triangle_energy) const;*/
 
     SimTK::Vec3 computeContactForceVector(
         double pressure, double area, SimTK::Vec3 normal) const;
@@ -1015,6 +1059,8 @@ private:
     mutable CacheVariable<SimTK::Vector> _casting_triangle_potential_energyCV;
     mutable CacheVariable<SimTK::Vector_<SimTK::Vec3>> _target_triangle_forceCV;
     mutable CacheVariable<SimTK::Vector_<SimTK::Vec3>> _casting_triangle_forceCV;
+    mutable CacheVariable<SimTK::Vector_<SimTK::Vec3>> _target_triangle_velocityCV;
+    mutable CacheVariable<SimTK::Vector_<SimTK::Vec3>> _casting_triangle_velocityCV;
     mutable CacheVariable<double> _target_total_contact_areaCV;
     mutable CacheVariable<double> _target_total_mean_proximityCV;
     mutable CacheVariable<double> _target_total_max_proximityCV;
@@ -1073,6 +1119,8 @@ private:
     std::vector<std::string> _stat_names;
     std::vector<std::string> _stat_names_vec3;
     std::vector<std::string> _mesh_data_names;
+
+    mutable SimTK::ContactSetIndex _simtkContactSetIndex;
 };
 //=============================================================================
 // END of class Smith2018ArticularContactForce

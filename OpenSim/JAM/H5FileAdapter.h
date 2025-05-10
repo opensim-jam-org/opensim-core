@@ -80,6 +80,8 @@ namespace OpenSim {
 
        void writeDataSetSimTKMatrixVec3Columns(const SimTK::Matrix_<SimTK::Vec3>& data, std::vector<std::string> column_dataset_paths);
 
+       void writeDataSetSimTKMatrixVec3(const SimTK::Matrix_<SimTK::Vec3>& data_vector, const std::string dataset_path);
+
        void writeTimeDataSet(const Array<double>& time);
 
        void writeStatesDataSet(const TimeSeriesTable& table);

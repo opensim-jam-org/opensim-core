@@ -507,8 +507,20 @@ void JointMechanicsTool::processInputFileTime(std::string file) {
     store.crop(get_start_time(), get_stop_time());
 
     if (get_normalize_to_cycle() == true) {
-        double norm_dt = (get_stop_time() - get_start_time()) / 100;
+        
+        //double norm_dt = (get_stop_time() - get_start_time()) / 100;
+            double norm_dt = (store.getLastTime() - store.getFirstTime()) / 100;
+        /*int nr = IO::ComputeNumberOfSteps(get_start_time(), get_stop_time(), norm_dt);
+        if (nr > 101) {
+            norm_dt = (get_stop_time() - get_start_time()) / 101;
+        }
+        if (nr < 101) {
+            norm_dt = (get_stop_time() - get_start_time()) / 99;
+        }*/
+
+
         store.resampleLinear(norm_dt);
+        
     } else if (get_resample_step_size() != -1 &&
                get_normalize_to_cycle() == false) {
         store.resampleLinear(get_resample_step_size());
@@ -541,7 +553,8 @@ Storage JointMechanicsTool::processInputStorage(std::string file) {
     store.crop(get_start_time(), get_stop_time());
 
     if (get_normalize_to_cycle() == true) {
-        double norm_dt = (get_stop_time() - get_start_time()) / 100;
+        //double norm_dt = (get_stop_time() - get_start_time()) / 100;
+        double norm_dt = (store.getLastTime() - store.getFirstTime()) / 100;
         store.resampleLinear(norm_dt);
     }
     else if (get_resample_step_size() != -1 && get_normalize_to_cycle() == false) {
@@ -1890,10 +1903,13 @@ int JointMechanicsTool::record(const SimTK::State& s, const int frame_num)
             int nVectorVec3 = 0;
             for (std::string output_name : _contact_output_vector_vec3_names) {
                 int nCol = _contact_output_vector_vec3_values[nFrc][nVectorVec3].ncol();
+                _contact_output_vector_vec3_values[nFrc][nVectorVec3].updRow(frame_num) =
+                    frc.getOutputValue<SimTK::Vector_<SimTK::Vec3>>(s, output_name).getAsRowVector();
                 for (int c = 0; c < nCol; c++) {
-                    _contact_output_vector_vec3_values[nFrc][nVectorVec3].updElt(frame_num, c) =
+                     
+                    //_contact_output_vector_vec3_values[nFrc][nVectorVec3].updElt(frame_num, c) =
                         //updRow(frame_num) = ~SimTK::Vector_<SimTK::Vec3>(6, SimTK::Vec3(-2));
-                    frc.getOutputValue<SimTK::Vector_<SimTK::Vec3>>(s, output_name)(c);
+                    //frc.getOutputValue<SimTK::Vector_<SimTK::Vec3>>(s, output_name)(c);
                 }
                 nVectorVec3++;
             }
@@ -2218,6 +2234,8 @@ void JointMechanicsTool::collectMeshContactOutputData(
     const std::string& mesh_name,
     std::vector<SimTK::Matrix>& triData,
     std::vector<std::string>& triDataNames,
+    std::vector<SimTK::Matrix_<SimTK::Vec3>>& triVec3,
+    std::vector<std::string>& triVec3Names,
     std::vector<SimTK::Matrix>& vertexData,
     std::vector<std::string>& vertexDataNames) {
 
@@ -2282,6 +2300,46 @@ void JointMechanicsTool::collectMeshContactOutputData(
                 else {
                     triDataNames.push_back(output_name);
                     triData.push_back(_contact_output_vector_double_values[nFrc][nVectorDouble]);
+                }
+            }
+
+        }
+
+        int nVectorVec3 = -1;
+        for (std::string output_name : _contact_output_vector_vec3_names) {
+            nVectorVec3++;
+            std::vector<std::string> output_name_split = split_string(output_name, "_");
+            std::string output_mesh_type = output_name_split[0];
+            std::string output_data_type = output_name_split[1];
+            std::string output_data_name = "";
+
+            for (int i = 2; i < (int)output_name_split.size(); ++i) {
+                if (i == 2) {
+                    output_data_name = output_name_split[i];
+                }
+                else {
+                    output_data_name = output_data_name + "_" + output_name_split[i];
+                }
+            }
+
+            if (output_mesh_type != mesh_type) {
+                continue;
+            }
+
+            if (output_data_type == "triangle") {
+                //Seperate data for each contact force
+                triVec3Names.push_back(output_name + "_" + frc.getName());
+                triVec3.push_back(
+                    _contact_output_vector_vec3_values[nFrc][nVectorVec3]);
+
+                //Combined data for all contacts visualized on one mesh
+                int data_index;
+                if (contains_string(triDataNames, output_name, data_index)) {
+                    triVec3[data_index] += _contact_output_vector_vec3_values[nFrc][nVectorVec3];
+                }
+                else {
+                    triVec3Names.push_back(output_name);
+                    triVec3.push_back(_contact_output_vector_vec3_values[nFrc][nVectorVec3]);
                 }
             }
 
@@ -2359,10 +2417,11 @@ void JointMechanicsTool::writeVTPFile(const std::string& mesh_path,
 
     //Collect data
     std::vector<SimTK::Matrix> triData, vertexData;
-    std::vector<std::string> triDataNames, vertexDataNames;
+    std::vector<SimTK::Matrix_<SimTK::Vec3>> triVec3;
+    std::vector<std::string> triDataNames, triVec3Names, vertexDataNames;
 
     collectMeshContactOutputData(mesh_name,
-        triData, triDataNames, vertexData, vertexDataNames);
+        triData, triDataNames, triVec3, triVec3Names, vertexData, vertexDataNames);
 
     //Mesh face connectivity
     const SimTK::PolygonalMesh& mesh = cnt_mesh.getPolygonalMesh();
@@ -2380,8 +2439,12 @@ void JointMechanicsTool::writeVTPFile(const std::string& mesh_path,
         VTPFileAdapter* mesh_vtp = new VTPFileAdapter();
         mesh_vtp->setDataFormat(get_vtp_file_format());
         //mesh_vtp->setDataFormat("ascii");
-        for (int i = 0; i < (int)triDataNames.size(); ++i) {
+        for (int i = 0; i < (int)triDataNames.size(); ++i) {            
             mesh_vtp->appendFaceData(triDataNames[i], ~triData[i][frame_num]);
+
+        }
+        for (int i = 0; i < (int)triVec3Names.size(); ++i) {
+            mesh_vtp->appendFaceVec3(triVec3Names[i], triVec3[i][frame_num].getAsVector());
         }
 
 
@@ -2823,15 +2886,26 @@ void JointMechanicsTool::writeH5File(
 
                 std::string data_path = 
                     cnt_group + "/" + mesh_name + "/" + data_label;
-                h5.createGroup(data_path);
+                
 
-                std::vector<std::string> reg_data_path;
-                for (int r = 0; r < 6; ++r) {
-                    reg_data_path.push_back(data_path + "/" + std::to_string(r));
+                std::vector<std::string> split_label =
+                    split_string(data_label, "_");
+
+                //std::cout << split_label[0] << std::endl;
+
+                if (split_label[0] == "regional") {
+                    h5.createGroup(data_path);
+
+                    std::vector<std::string> reg_data_path;
+                    for (int r = 0; r < 6; ++r) {
+                        reg_data_path.push_back(data_path + "/" + std::to_string(r));
+                    }
+                    
+                    h5.writeDataSetSimTKMatrixVec3Columns(data, reg_data_path);
                 }
-
-                h5.writeDataSetSimTKMatrixVec3Columns(data, reg_data_path);
-
+                else {                    
+                    h5.writeDataSetSimTKMatrixVec3(data, data_path);
+                }
                 j++;
             }
 

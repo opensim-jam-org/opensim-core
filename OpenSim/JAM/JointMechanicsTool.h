@@ -362,6 +362,8 @@ private:
     void getGeometryPathPoints(const SimTK::State& s, const GeometryPath& geoPath, SimTK::Vector_<SimTK::Vec3>& path_points, int& nPoints);
     void collectMeshContactOutputData(const std::string& mesh_name,
         std::vector<SimTK::Matrix>& faceData, std::vector<std::string>& faceDataNames,
+        std::vector<SimTK::Matrix_<SimTK::Vec3>>& triVec3,
+        std::vector<std::string>& triVec3Names,
         std::vector<SimTK::Matrix>& pointData, std::vector<std::string>& pointDataNames);
 
     int findStateLabelIndexInternal(const std::string* begin,
