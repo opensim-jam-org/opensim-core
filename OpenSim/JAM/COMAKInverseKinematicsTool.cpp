@@ -280,7 +280,7 @@ bool COMAKInverseKinematicsTool::initialize()
         log_info(_secondary_coord_name[i]);
     }
     
-    log_info("Secondary Coupled Coordinate: ",
+    log_info("Secondary Coupled Coordinate: {}",
         get_secondary_coupled_coordinate());
 
     if (get_perform_secondary_constraint_sim()) {
