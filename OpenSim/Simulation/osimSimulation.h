@@ -42,7 +42,6 @@
 #include "Model/ContactGeometrySet.h"
 #include "Model/ContactHalfSpace.h"
 #include "Model/ContactMesh.h"
-#include "Model/ContactSphere.h"
 #include "Model/Smith2018ContactMesh.h"
 #include "Model/Smith2018ArticularContactForce.h"
 #include "Model/CoordinateSet.h"

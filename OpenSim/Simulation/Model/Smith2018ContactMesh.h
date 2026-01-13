@@ -183,7 +183,7 @@ class OSIMSIMULATION_API Smith2018ContactMesh : public ContactGeometry {
 
     // TODO This function must be overriden for because this component is
     // derived from OpenSim::ContactGeometry.
-    SimTK::ContactGeometry createSimTKContactGeometry() const override {
+    SimTK::ContactGeometry createSimTKContactGeometryImpl() const override {
         return SimTK::ContactGeometry();
     };
 
